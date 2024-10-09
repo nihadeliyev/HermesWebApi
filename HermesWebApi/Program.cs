@@ -90,8 +90,20 @@ builder.Services.AddSwaggerGen(c =>
 
 
 builder.Services.AddMvc(c => c.Conventions.Add(new ApiExplorerIgnores()));
-
+//sonradan elave edilid
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        builder =>
+        {
+            builder.AllowAnyOrigin()
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
+});
 var app = builder.Build();
+//sonradan elave edildi
+app.UseCors("AllowAll");
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
