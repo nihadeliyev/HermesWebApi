@@ -34,12 +34,7 @@ namespace HermesWebApi.Controllers
 
             return Unauthorized("Invalid username or password.");
         }
-
-        [Microsoft.AspNetCore.Mvc.HttpGet("Get2")]
-        public IActionResult Get()
-        {
-            return Ok("");
-        }
+        
         private string? IsAuthenticated(string usr, string pwd)
         {
 #pragma warning disable CS0219 // The variable 'adServer' is assigned but its value is never used
