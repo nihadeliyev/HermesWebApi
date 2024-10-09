@@ -15,6 +15,7 @@ namespace HermesWebApi.Models
         public string ADAccount { get; set; }
         public bool Status { get; set; }
         public List<UserFrameRight>? FrameRights { get; set; }
+
     }
     public class UserFrameRight
     {
