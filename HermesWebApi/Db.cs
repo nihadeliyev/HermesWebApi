@@ -112,6 +112,41 @@ namespace HermesWebApi
                 return ResultCodes.dbError;
             }
         }
+        public async static Task<ResultCode> GetDbDataWithConnectionAsync(SqlConnection connection, string commandText,  DataSet ds, params SqlParameter[] parameters)
+        {
+            //if (SiteSession.UserID.Equals("0"))
+            //    return ResultCodes.sessionTimeoutError;
+#pragma warning disable CS0219 // The variable 'result' is assigned but its value is never used
+            bool result;
+#pragma warning restore CS0219 // The variable 'result' is assigned but its value is never used
+            try
+            {
+                if (connection.State != ConnectionState.Open)
+                    connection.Open();
+                SqlCommand cmd = new SqlCommand();
+                cmd.CommandTimeout = 0;
+                cmd.Connection = connection;
+                cmd.CommandText = commandText;
+                cmd.CommandType = CommandType.Text;
+                foreach (SqlParameter param in parameters)
+                {
+                    cmd.Parameters.Add(param);
+                }
+                SqlDataAdapter da = new SqlDataAdapter(cmd);
+                ds = new DataSet();
+                da.Fill(ds);
+                cmd.Parameters.Clear();
+                result = true;
+                return ResultCodes.noError;
+            }
+            catch (Exception ExcpNo)
+            {
+                //new UserLogger().LogException(ExcpNo.Message + "----Query : " + commandText.Replace("'", "''"));
+                result = false;
+                ResultCodes.dbError.ErrorMessageEn = ExcpNo.Message;
+                return ResultCodes.dbError;
+            }
+        }
         public static ResultCode GetDbDataWithConnectionSessionless(ref SqlConnection connection, string commandText, ref DataSet ds, params SqlParameter[] parameters)
         {
 #pragma warning disable CS0219 // The variable 'result' is assigned but its value is never used
