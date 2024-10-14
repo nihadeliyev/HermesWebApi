@@ -23,7 +23,7 @@ namespace HermesWebApi.Controllers
         }
 
         [Microsoft.AspNetCore.Mvc.HttpGet("All"), Authorize]
-        public async Task<IActionResult> Get(int page = 1)
+        public async Task<IActionResult> Get(int pageNumber, int pageSize = 10)
         {
             var userID = _userService.GetUserId();
 
@@ -42,7 +42,7 @@ OFFSET @Start ROWS FETCH NEXT @RowCount ROWS ONLY
 ";
 
             DataSet ds = new DataSet();
-            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("Start", (page - 1) * 100), new SqlParameter("RowCount", 100));
+            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("Start", (pageNumber - 1) * 100), new SqlParameter("RowCount", pageSize));
             if (res != ResultCodes.noError)
                 return NotFound("Data could not be found");
 
