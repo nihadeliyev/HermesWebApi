@@ -3,6 +3,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Data.SqlClient;
 using System.Data;
+using System.ComponentModel.Design;
+using System.Data.Common;
+using System.Net.Mail;
+using System.Xml.Linq;
 
 namespace HermesWebApi.Controllers
 {
@@ -38,7 +42,8 @@ namespace HermesWebApi.Controllers
     LEFT JOIN MDEducations ED ON ED.EducationID = E.Education
     LEFT JOIN MDRoles R ON E.RoleID = R.RoleID
     ORDER BY E.EmpName
-OFFSET @Start ROWS FETCH NEXT @RowCount ROWS ONLY
+OFFSET @Start ROWS FETCH NEXT @RowCount ROWS ONLY;
+SELECT COUNT(*) FROM MDEmployees;
 ";
 
             DataSet ds = new DataSet();
@@ -63,8 +68,12 @@ OFFSET @Start ROWS FETCH NEXT @RowCount ROWS ONLY
 
                 employees.Add(emp);
             }
-
-            return Ok(employees);
+            DataList<Employe> dl = new DataList<Employe>();
+            dl.PageSize = pageSize;
+            dl.CurrentPage = pageNumber;
+            dl.RowCount = int.Parse(ds.Tables[1].Rows[0][0].ToString());
+            dl.Data = employees;
+            return Ok(dl);
         }
         [Microsoft.AspNetCore.Mvc.HttpGet("Count"), Authorize]
         public async Task<IActionResult> EmployeeCount()
@@ -85,6 +94,64 @@ OFFSET @Start ROWS FETCH NEXT @RowCount ROWS ONLY
                 return NotFound("Data could not be found");
 
             return Ok(int.Parse(ds.Tables[0].Rows[0][0].ToString()));
+        }
+
+        [HttpPost("create"), Authorize]
+        public IActionResult Create(Employe data)
+        {
+            string? userID = _userService.GetUserId();
+            if (userID == null)
+                return Unauthorized("Unable to find user information.");
+            object idField = "EmpID";
+            ResultCode res;
+            int affRows = 0;
+            string sql = string.Empty;
+            sql = @"INSERT INTO MDEmployees
+                       (EmpName
+                       ,EmpSurname
+                       ,FatherName
+                       ,BirthDate
+                       ,Education
+                       ,Citizenship
+                       ,Notes
+                       ,PhoneNumber
+                       ,EmailAddress
+                       ,CompanyID
+                       ,DepartmentID
+                       ,RoleID
+                       ,CreatedBy)
+                VALUES
+                        (@EmpName
+                       ,@EmpSurname
+                       ,@FatherName
+                       ,@BirthDate
+                       ,@Education
+                       ,@Citizenship
+                       ,@Notes
+                       ,@PhoneNumber
+                       ,@EmailAddress
+                       ,@CompanyID
+                       ,@DepartmentID
+                       ,@RoleID
+                       ,@CreatedBy)
+";
+            res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows, ref idField,
+                new SqlParameter("EmpName", data.Name),
+                new SqlParameter("EmpSurname", ""),
+                new SqlParameter("FatherName", data.FatherName),
+                new SqlParameter("BirthDate", data.BirthDate ?? (object)DBNull.Value),
+                new SqlParameter("Education", data.Education),
+                new SqlParameter("Citizenship", ""),
+                new SqlParameter("Notes", data.Notes ?? ""),
+                new SqlParameter("PhoneNumber", data.PhoneNumber ?? ""),
+                new SqlParameter("EmailAddress", data.EmailAddress ?? ""),
+                new SqlParameter("CompanyID", data.CompanyID),
+                new SqlParameter("DepartmentID", data.DepartmentID),
+                new SqlParameter("RoleID", data.RoleID),
+                new SqlParameter("CreatedBy", userID));
+            if (res.Equals(ResultCodes.noError))
+                data.ID = idField.ToString();           
+            return res == ResultCodes.noError ? Ok(res.ErrorMessage) : UnprocessableEntity(res.ErrorMessage);
         }
 
     }

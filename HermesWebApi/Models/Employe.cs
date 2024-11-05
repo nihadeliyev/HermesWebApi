@@ -1,6 +1,6 @@
 ﻿namespace HermesWebApi.Models
 {
-    public class Employe:Parameter
+    public class Employe : Parameter
     {
         public string FatherName { get; set; }
         public DateTime? BirthDate { get; set; }

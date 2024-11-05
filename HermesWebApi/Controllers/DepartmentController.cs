@@ -22,7 +22,7 @@ namespace HermesWebApi.Controllers
             gCon = new SqlConnection(_configuration["ConnectionStrings:Default"]);
         }
 
-        [Microsoft.AspNetCore.Mvc.HttpGet("All"),Authorize]
+        [Microsoft.AspNetCore.Mvc.HttpGet("All"), Authorize]
         public IActionResult Get()
         {
             var userID = _userService.GetUserId();
@@ -46,6 +46,21 @@ select * from MDDepartments ORDER BY DepartmentName";
             }
 
             return Ok(types);
+        }
+        [HttpPost("create"), Authorize]
+        public IActionResult Create(Department dep)
+        {
+            string? userID = _userService.GetUserId();
+            if (userID == null)
+                return Unauthorized("Unable to find user information.");
+            string sql = "INSERT INTO MDDepartments (DepartmentName, CreatedBy, CreatedDate) VALUES(@DepartmentName, @CreatedBy, GETDATE())";
+            ResultCode res = new ResultCode();
+            int affRows = 0;
+            res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows,
+                new SqlParameter("DepartmentName", dep.Name),
+                new SqlParameter("CreatedBy", userID)
+                );
+            return res == ResultCodes.noError ? Ok(res.ErrorMessage) : UnprocessableEntity(res.ErrorMessage);
         }
     }
 }
