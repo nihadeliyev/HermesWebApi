@@ -46,7 +46,7 @@ OFFSET @Start ROWS FETCH NEXT @RowCount ROWS ONLY;
 SELECT * FROM TRPlanDates ORDER BY PlanID, Date_;
 SELECT COUNT(*) FROM TRPlannedTrainings";
             DataSet ds = new DataSet();
-            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("Start", (pageNumber - 1) * 100), new SqlParameter("RowCount", pageSize));
+            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("Start", (pageNumber - 1) * pageSize), new SqlParameter("RowCount", pageSize));
             if (res != ResultCodes.noError)
                 return NotFound("Data could not be found");
             List<TrainingPlan> data = new List<TrainingPlan>();

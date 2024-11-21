@@ -41,13 +41,13 @@ namespace HermesWebApi.Controllers
     LEFT JOIN MDDepartments D ON E.DepartmentID = D.DepartmentID 
     LEFT JOIN MDEducations ED ON ED.EducationID = E.Education
     LEFT JOIN MDRoles R ON E.RoleID = R.RoleID
-    ORDER BY E.EmpName
+    ORDER BY E.EmpID DESC
 OFFSET @Start ROWS FETCH NEXT @RowCount ROWS ONLY;
 SELECT COUNT(*) FROM MDEmployees;
 ";
 
             DataSet ds = new DataSet();
-            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("Start", (pageNumber - 1) * 100), new SqlParameter("RowCount", pageSize));
+            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("Start", (pageNumber - 1) * pageSize), new SqlParameter("RowCount", pageSize));
             if (res != ResultCodes.noError)
                 return NotFound("Data could not be found");
 
