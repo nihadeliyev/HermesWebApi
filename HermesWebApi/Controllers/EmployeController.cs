@@ -35,7 +35,7 @@ namespace HermesWebApi.Controllers
                 return Unauthorized("Unable to find user information.");
 
             string sql = @"
-    SELECT  E.EmpID, E.EmpName, E.FatherName, E.BirthDate, C.CompanyName, D.DepartmentName, ED.EducationName, R.RoleName 
+    SELECT  E.EmpID, E.EmpName, E.FatherName, E.BirthDate, C.CompanyName, D.DepartmentName, ED.EducationName, R.RoleName , E.EmailAddress, E.PhoneNumber, E.Notes
     FROM MDEmployees E 
     LEFT JOIN MDCompanies C ON E.CompanyID = C.CompanyID 
     LEFT JOIN MDDepartments D ON E.DepartmentID = D.DepartmentID 
@@ -64,6 +64,8 @@ SELECT COUNT(*) FROM MDEmployees;
                     DepartmentName = row["DepartmentName"].ToString(),
                     EducationName = row["EducationName"].ToString(),
                     RoleName = row["RoleName"].ToString(),
+                    PhoneNumber = row["PhoneNumber"].ToString(),
+                    EmailAddress = row["EmailAddress"].ToString()
                 };
 
                 employees.Add(emp);
@@ -138,7 +140,7 @@ SELECT COUNT(*) FROM MDEmployees;
             res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows, ref idField,
                 new SqlParameter("EmpName", data.Name),
                 new SqlParameter("EmpSurname", ""),
-                new SqlParameter("FatherName", data.FatherName),
+                new SqlParameter("FatherName", data.FatherName ?? ""),
                 new SqlParameter("BirthDate", data.BirthDate ?? (object)DBNull.Value),
                 new SqlParameter("Education", data.Education),
                 new SqlParameter("Citizenship", ""),
@@ -150,7 +152,7 @@ SELECT COUNT(*) FROM MDEmployees;
                 new SqlParameter("RoleID", data.RoleID),
                 new SqlParameter("CreatedBy", userID));
             if (res.Equals(ResultCodes.noError))
-                data.ID = idField.ToString();           
+                data.ID = idField.ToString();
             return res == ResultCodes.noError ? Ok(res.ErrorMessage) : UnprocessableEntity(res.ErrorMessage);
         }
 
