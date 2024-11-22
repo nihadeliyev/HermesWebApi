@@ -35,7 +35,9 @@ namespace HermesWebApi.Controllers
                 return Unauthorized("Unable to find user information.");
             //return Ok(new { userID = userID, message = "Authenticated User" });
             string sql = @"
-SELECT * FROM MDUsers WHERE UserID=@UserID; 
+SELECT U.*,UR.RoleName FROM MDUsers U  
+LEFT JOIN MDUserRoles UR ON U.RoleID=UR.RoleID
+WHERE U.UserID=@UserID; 
 SELECT R.*,F.FrameName, F.URL FROM MGUserFrameRights R LEFT JOIN MGFrames F ON R.FrameID=F.FrameID WHERE R.UserID=@UserID ORDER BY F.FrameName";
             DataSet ds = new DataSet();
             ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("UserID", userID));
@@ -49,6 +51,8 @@ SELECT R.*,F.FrameName, F.URL FROM MGUserFrameRights R LEFT JOIN MGFrames F ON R
             usr.Mobile = ds.Tables[0].Rows[0]["Mobile"].ToString();
             usr.CompanyID = ds.Tables[0].Rows[0]["CompanyID"].ToString() == "" ? "0" : ds.Tables[0].Rows[0]["CompanyID"].ToString();
             usr.Status = bool.Parse(ds.Tables[0].Rows[0]["Status"].ToString());
+            usr.RoleID = ds.Tables[0].Rows[0]["RoleID"].ToString() == "" ? "0" : ds.Tables[0].Rows[0]["RoleID"].ToString();
+            usr.RoleName = ds.Tables[0].Rows[0]["RoleName"].ToString();
             usr.FrameRights = new List<UserFrameRight>();
             for (int i = 0; i < ds.Tables[1].Rows.Count; i++)
             {
@@ -82,7 +86,7 @@ SELECT R.*,F.FrameName, F.URL FROM MGUserFrameRights R LEFT JOIN MGFrames F ON R
                 return Unauthorized("Unable to find user information.");
             //return Ok(new { userID = userID, message = "Authenticated User" });
             string sql = @"
-SELECT * FROM MDUsers WHERE UserID=@UserID; 
+SELECT U.*,UR.RoleName FROM MDUsers U LEFT JOIN MDUserRoles UR ON U.RoleID=UR.RoleID WHERE U.UserID=@UserID; 
 SELECT R.*,F.FrameName, F.URL FROM MGUserFrameRights R LEFT JOIN MGFrames F ON R.FrameID=F.FrameID WHERE R.UserID=@UserID ORDER BY F.FrameName";
             DataSet ds = new DataSet();
             ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("UserID", id));
@@ -96,6 +100,8 @@ SELECT R.*,F.FrameName, F.URL FROM MGUserFrameRights R LEFT JOIN MGFrames F ON R
             usr.Mobile = ds.Tables[0].Rows[0]["Mobile"].ToString();
             usr.CompanyID = ds.Tables[0].Rows[0]["CompanyID"].ToString() == "" ? "0" : ds.Tables[0].Rows[0]["CompanyID"].ToString();
             usr.Status = bool.Parse(ds.Tables[0].Rows[0]["Status"].ToString());
+            usr.RoleID = ds.Tables[0].Rows[0]["RoleID"].ToString() == "" ? "0" : ds.Tables[0].Rows[0]["RoleID"].ToString();
+            usr.RoleName = ds.Tables[0].Rows[0]["RoleName"].ToString();
             usr.FrameRights = new List<UserFrameRight>();
             for (int i = 0; i < ds.Tables[1].Rows.Count; i++)
             {
@@ -131,7 +137,10 @@ SELECT R.*,F.FrameName, F.URL FROM MGUserFrameRights R LEFT JOIN MGFrames F ON R
                 return Unauthorized("Unable to find user information.");
 
             string sql = @"
-SELECT U.*,C.CompanyName FROM MDUsers U LEFT JOIN MDCompanies C ON U.CompanyID=C.CompanyID ORDER BY U.UserName";
+SELECT U.*,C.CompanyName, UR.RoleName FROM MDUsers U 
+LEFT JOIN MDCompanies C ON U.CompanyID=C.CompanyID 
+LEFT JOIN MDUserRoles UR ON U.RoleID=UR.RoleID
+ORDER BY U.UserID DESC";
             DataSet ds = new DataSet();
             ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("UserID", userID));
             if (res != ResultCodes.noError)
@@ -148,6 +157,8 @@ SELECT U.*,C.CompanyName FROM MDUsers U LEFT JOIN MDCompanies C ON U.CompanyID=C
                 usr.CompanyID = ds.Tables[0].Rows[i]["CompanyID"].ToString() == "" ? "0" : ds.Tables[0].Rows[0]["CompanyID"].ToString();
                 usr.CompanyName = ds.Tables[0].Rows[i]["CompanyName"].ToString();
                 usr.Status = bool.Parse(ds.Tables[0].Rows[i]["Status"].ToString());
+                usr.RoleID = ds.Tables[0].Rows[i]["RoleID"].ToString() == "" ? "0" : ds.Tables[0].Rows[i]["RoleID"].ToString();
+                usr.RoleName = ds.Tables[0].Rows[i]["RoleName"].ToString();
                 users.Add(usr);
             }
 
@@ -161,18 +172,20 @@ SELECT U.*,C.CompanyName FROM MDUsers U LEFT JOIN MDCompanies C ON U.CompanyID=C
             string? userID = _userService.GetUserId();
             if (userID == null)
                 return Unauthorized("Unable to find user information.");
-            string sql = "exec [Sp_MDCreateUser] @UserName, @UserCode, @Pswd, @ADAccount, @MailAddress, @Mobile, @Description, @AllowedIP, @CreatedBy, @CompanyID";
+            string sql = "exec [Sp_MDCreateUser] @UserName, @UserCode, @Pswd, @ADAccount, @MailAddress, @Mobile, @Description, @AllowedIP, @RoleID, @PositionID, @CreatedBy, @CompanyID";
             ResultCode res = new ResultCode();
             int affRows = 0;
             res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows,
                 new SqlParameter("UserName", usr.UserName),
                 new SqlParameter("UserCode", usr.UserCode),
                 new SqlParameter("Pswd", usr.Password),
-                new SqlParameter("ADAccount", usr.ADAccount),
+                new SqlParameter("ADAccount", usr.ADAccount ?? ""),
                 new SqlParameter("MailAddress", usr.Email),
-                new SqlParameter("Mobile", usr.Mobile),
+                new SqlParameter("Mobile", usr.Mobile ?? ""),
                 new SqlParameter("Description", ""),
                 new SqlParameter("AllowedIP", "*"),
+                new SqlParameter("RoleID", usr.RoleID),
+                new SqlParameter("PositionID", usr.PositionID),
                 new SqlParameter("CreatedBy", userID),
                 new SqlParameter("CompanyID", usr.CompanyID)
                 );

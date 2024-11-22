@@ -27,7 +27,7 @@ namespace HermesWebApi.Controllers
         }
 
         [Microsoft.AspNetCore.Mvc.HttpGet("All"), Authorize]
-        public async Task<IActionResult> Get(int pageNumber, int pageSize = 10)
+        public async Task<IActionResult> Get(int pageNumber, int pageSize, string orderBy="E.EmpID DESC")
         {
             var userID = _userService.GetUserId();
 
