@@ -23,7 +23,7 @@ namespace HermesWebApi.Controllers
         }
 
         [Microsoft.AspNetCore.Mvc.HttpGet("All"), Authorize]
-        public IActionResult Get(int pageNumber, int pageSize = 10)
+        public IActionResult Get(int pageNumber, DateTime? fromDate, DateTime? toDate, int pageSize = 10)
         {
             var userID = _userService.GetUserId();
 
@@ -40,13 +40,25 @@ LEFT JOIN MDTrainers TRN ON T.TrainerID=TRN.TrainerID
 LEFT JOIN MDTrainers TRN2 ON T.TrainerID2=TRN2.TrainerID
 LEFT JOIN MDTrainers TRN3 ON T.TrainerID3=TRN3.TrainerID
 LEFT JOIN MDPrograms P ON T.ProgramID=P.ProgramID
+{0}
 ORDER BY Date_ DESC
 OFFSET @Start ROWS FETCH NEXT @RowCount ROWS ONLY;
 
 SELECT * FROM TRPlanDates ORDER BY PlanID, Date_;
-SELECT COUNT(*) FROM TRPlannedTrainings";
+SELECT COUNT(*) FROM TRPlannedTrainings T {0}";
             DataSet ds = new DataSet();
-            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("Start", (pageNumber - 1) * pageSize), new SqlParameter("RowCount", pageSize));
+            string dateFilter = string.Empty;
+            if (fromDate is not null)
+            {
+                dateFilter += " WHERE T.Date_>=@fromDate ";
+                if (toDate is not null)
+                    dateFilter += " AND T.Date_<=@toDate ";
+            }
+            else if (toDate is not null)
+                dateFilter = " WHERE T.Date_<=@toDate ";
+            sql = string.Format(sql, dateFilter);
+            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("Start", (pageNumber - 1) * pageSize), new SqlParameter("RowCount", pageSize),
+                new SqlParameter("fromDate", fromDate ?? (object)DBNull.Value), new SqlParameter("toDate", toDate ?? (object)DBNull.Value));
             if (res != ResultCodes.noError)
                 return NotFound("Data could not be found");
             List<TrainingPlan> data = new List<TrainingPlan>();
