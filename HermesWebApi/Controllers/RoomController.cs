@@ -48,5 +48,22 @@ select * from MDTrainingRooms ORDER BY RoomName";
 
             return Ok(types);
         }
+        [HttpPost("create"), Authorize]
+        public IActionResult Create(Room data)
+        {
+            string? userID = _userService.GetUserId();
+            if (userID == null)
+                return Unauthorized("Unable to find user information.");
+            string sql = "INSERT INTO MDTrainingRooms (RoomName, RoomCode, Capacity, CreatedBy, CreatedDate) VALUES(@RoomName, @RoomCode, @Capacity, @CreatedBy, GETDATE())";
+            ResultCode res = new ResultCode();
+            int affRows = 0;
+            res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows,
+                new SqlParameter("RoomName", data.Name),
+                new SqlParameter("RoomCode", data.RoomCode),
+                new SqlParameter("Capacity", data.Capacity),
+                new SqlParameter("CreatedBy", userID)
+                );
+            return res == ResultCodes.noError ? Ok(res.ErrorMessage) : UnprocessableEntity(res.ErrorMessage);
+        }
     }
 }

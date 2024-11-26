@@ -47,5 +47,19 @@ select * from MDTrainingCategories ORDER BY CategoryName";
 
             return Ok(cats);
         }
+        [HttpPost("create"), Authorize]
+        public IActionResult Create(TrainingCategory data)
+        {
+            string? userID = _userService.GetUserId();
+            if (userID == null)
+                return Unauthorized("Unable to find user information.");
+            string sql = "INSERT INTO MDTrainingCategories (CategoryName) VALUES(@CategoryName)";
+            ResultCode res = new ResultCode();
+            int affRows = 0;
+            res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows,
+                new SqlParameter("CategoryName", data.Name)
+                );
+            return res == ResultCodes.noError ? Ok(res.ErrorMessage) : UnprocessableEntity(res.ErrorMessage);
+        }
     }
 }

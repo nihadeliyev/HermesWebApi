@@ -47,5 +47,21 @@ select *  from MDCompanies  ORDER BY CompanyName";
 
             return Ok(types);
         }
+
+        [HttpPost("create"), Authorize]
+        public IActionResult Create(Company dep)
+        {
+            string? userID = _userService.GetUserId();
+            if (userID == null)
+                return Unauthorized("Unable to find user information.");
+            string sql = "INSERT INTO MDCompanies (CompanyName, CreatedBy, CreatedDate) VALUES(@CompanyName, @CreatedBy, GETDATE())";
+            ResultCode res = new ResultCode();
+            int affRows = 0;
+            res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows,
+                new SqlParameter("CompanyName", dep.Name),
+                new SqlParameter("CreatedBy", userID)
+                );
+            return res == ResultCodes.noError ? Ok(res.ErrorMessage) : UnprocessableEntity(res.ErrorMessage);
+        }
     }
 }

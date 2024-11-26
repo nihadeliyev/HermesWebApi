@@ -49,5 +49,22 @@ select *  from MDTrainers  ORDER BY TrainerName";
 
             return Ok(types);
         }
+        [HttpPost("create"), Authorize]
+        public IActionResult Create(Trainer data)
+        {
+            string? userID = _userService.GetUserId();
+            if (userID == null)
+                return Unauthorized("Unable to find user information.");
+            string sql = "INSERT INTO MDTrainers (TrainerName, MailAddress, Notes, CreatedBy, CreatedDate) VALUES(@TrainerName, @MailAddress, @Notes,, @CreatedBy, GETDATE())";
+            ResultCode res = new ResultCode();
+            int affRows = 0;
+            res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows,
+                new SqlParameter("TrainerName", data.Name),
+                new SqlParameter("MailAddress", data.MailAddress),
+                new SqlParameter("Notes", data.Notes ?? ""),
+                new SqlParameter("CreatedBy", userID)
+                );
+            return res == ResultCodes.noError ? Ok(res.ErrorMessage) : UnprocessableEntity(res.ErrorMessage);
+        }
     }
 }

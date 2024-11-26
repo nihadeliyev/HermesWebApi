@@ -59,5 +59,28 @@ LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID LEFT JOIN MDTraining
 
             return Ok(types);
         }
+        [HttpPost("create"), Authorize]
+        public IActionResult Create(Training data)
+        {
+            string? userID = _userService.GetUserId();
+            if (userID == null)
+                return Unauthorized("Unable to find user information.");
+            string sql = "INSERT INTO MDTrainings (TrainingName, TrainingCode, Category, TrType, ExpireDays, Certificate, Passpoint, Notes, Active, CreatedBy, CreatedDate) VALUES(@TrainingName, @TrainingCode, @Category, @TrType, @ExpireDays, @Certificate, @Passpoint, @Notes, @Active, @CreatedBy, GETDATE())";
+            ResultCode res = new ResultCode();
+            int affRows = 0;
+            res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows,
+                new SqlParameter("TrainingName", data.Name),
+                new SqlParameter("TrainingCode", data.TrainingCode),
+                new SqlParameter("Category", data.CategoryID),
+                new SqlParameter("TrType", data.TypeID),
+                new SqlParameter("ExpireDays", data.ExpireDays ?? 0),
+                new SqlParameter("Certificate", data.Certificate ?? false),
+                new SqlParameter("Passpoint", data.Passpoint ?? 0),
+                new SqlParameter("Notes", data.Notes ?? ""),
+                new SqlParameter("Active", data.Status ?? true),
+                new SqlParameter("CreatedBy", userID)
+                );
+            return res == ResultCodes.noError ? Ok(res.ErrorMessage) : UnprocessableEntity(res.ErrorMessage);
+        }
     }
 }
