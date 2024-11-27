@@ -61,6 +61,42 @@ SELECT TP.TrainerID, P.ProfID, P.Profession FROM MDTrainerProfessions TP INNER J
 
             return Ok(types);
         }
+
+        [Authorize]
+        [HttpGet("{id}")]
+        public IActionResult GetData(string id)
+        {
+            var userID = _userService.GetUserId();
+
+            if (userID == null)
+                return Unauthorized("Unable to find user information.");
+
+            string sql = @"
+select *  from MDTrainers WHERE TrainerID=@TrainerID  ORDER BY TrainerName;
+SELECT TP.TrainerID, P.ProfID, P.Profession FROM MDTrainerProfessions TP INNER JOIN MDProfessions P ON TP.ProfID=P.ProfID WHERE TP.TrainerID=@TrainerID";
+            DataSet ds = new DataSet();
+            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("TrainerID", id));
+            if (res != ResultCodes.noError)
+                return NotFound("Data could not be found");
+
+            Trainer type = new Trainer();
+            type.ID = ds.Tables[0].Rows[0]["TrainerID"].ToString();
+            type.Name = ds.Tables[0].Rows[0]["TrainerName"].ToString();
+            type.MailAddress = ds.Tables[0].Rows[0]["MailAddress"].ToString();
+            type.Notes = ds.Tables[0].Rows[0]["Notes"].ToString();
+            type.MobileNumber = ds.Tables[0].Rows[0]["MobileNo"].ToString();
+            DataRow[] drs = ds.Tables[1].Select("TrainerID=" + type.ID);
+            if (drs != null && drs.Length > 0)
+            {
+                for (int j = 0; j < drs.Length; j++)
+                    type.Professions.Add(new Profession()
+                    {
+                        ID = drs[j]["ProfID"].ToString(),
+                        Name = drs[j]["Profession"].ToString()
+                    });
+            }
+            return Ok(type);
+        }
         [HttpPost("create"), Authorize]
         public IActionResult Create(Trainer data)
         {
@@ -79,7 +115,7 @@ SELECT TP.TrainerID, P.ProfID, P.Profession FROM MDTrainerProfessions TP INNER J
                 new SqlParameter("MobileNo", data.MobileNumber ?? ""),
                 new SqlParameter("CreatedBy", userID)
                 );
-            if (res != ResultCodes.noError )
+            if (res != ResultCodes.noError)
                 return UnprocessableEntity(res.ErrorMessage);
             data.ID = idField.ToString();
             if (data.Professions is not null && data.Professions.Count > 0)
