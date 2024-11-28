@@ -32,7 +32,7 @@ namespace HermesWebApi.Controllers
 
             string sql = @"
 select T.*,TR.TrainingName, r.RoomName, TRN.TrainerName, 
-TRN2.TrainerName TrainerName2,TRN3.TrainerName TrainerName3,P.ProgramName
+TRN2.TrainerName TrainerName2,TRN3.TrainerName TrainerName3,P.ProgramName, PL.PlanCount, AC.FactCount
 from TRPlannedTrainings T
 LEFT JOIN MDTrainings TR ON T.TrainingID=TR.TrainingID
 LEFT JOIN MDTrainingRooms R ON T.RoomID=T.RoomID
@@ -40,6 +40,8 @@ LEFT JOIN MDTrainers TRN ON T.TrainerID=TRN.TrainerID
 LEFT JOIN MDTrainers TRN2 ON T.TrainerID2=TRN2.TrainerID
 LEFT JOIN MDTrainers TRN3 ON T.TrainerID3=TRN3.TrainerID
 LEFT JOIN MDPrograms P ON T.ProgramID=P.ProgramID
+LEFT JOIN (SELECT PlanID, COUNT(DISTINCT(EmpID)) PlanCount FROM TRTrainingParticipants  GROUP BY PlanID) PL ON T.ID=PL.PlanID
+LEFT JOIN (SELECT PlanID, COUNT(DISTINCT(EmpID)) FactCount FROM TRTrainingParticipated  GROUP BY PlanID) AC ON T.ID=AC.PlanID
 {0}
 ORDER BY Date_ DESC
 OFFSET @Start ROWS FETCH NEXT @RowCount ROWS ONLY;
@@ -85,6 +87,9 @@ SELECT COUNT(*) FROM TRPlannedTrainings T {0}";
                 plan.ProgramName = ds.Tables[0].Rows[i]["ProgramName"].ToString();
                 plan.Organizator = ds.Tables[0].Rows[i]["Organizator"].ToString();
                 plan.Notes = ds.Tables[0].Rows[i]["Notes"].ToString();
+                plan.PlannedParticipantCount = ds.Tables[0].Rows[i]["PlanCount"].ToString() == "" ? null : int.Parse(ds.Tables[0].Rows[i]["PlanCount"].ToString());
+                plan.ActualParticipantCount = ds.Tables[0].Rows[i]["FactCount"].ToString() == "" ? null : int.Parse(ds.Tables[0].Rows[i]["FactCount"].ToString());
+
                 plan.Dates = new List<DateTime>();
                 DataRow[] dates = ds.Tables[1].Select("PlanID=" + plan.ID);
                 for (int j = 0; j < dates.Length; j++)

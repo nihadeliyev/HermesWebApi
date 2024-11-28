@@ -46,5 +46,19 @@ select * from MDTrainingTypes ORDER BY TypeName";
 
             return Ok(types);
         }
+        [HttpPost("create"), Authorize]
+        public IActionResult Create(TrainingType data)
+        {
+            string? userID = _userService.GetUserId();
+            if (userID == null)
+                return Unauthorized("Unable to find user information.");
+            string sql = "INSERT INTO MDTrainingTypes (TypeName) VALUES(@TypeName)";
+            ResultCode res = new ResultCode();
+            int affRows = 0;
+            res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows,
+                new SqlParameter("TypeName", data.Name)
+                );
+            return res == ResultCodes.noError ? Ok(res.ErrorMessage) : UnprocessableEntity(res.ErrorMessage);
+        }
     }
 }

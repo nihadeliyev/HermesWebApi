@@ -23,7 +23,8 @@
         public int Status { get; set; }
         public int? ProgramID { get; set; }
         public string ProgramName { get; set; }
-
+        public int? PlannedParticipantCount { get; set; }
+        public int? ActualParticipantCount { get; set; }
         public int Days { get { return Dates.Count; } }
         public double Hours
         {
