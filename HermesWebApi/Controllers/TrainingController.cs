@@ -23,7 +23,7 @@ namespace HermesWebApi.Controllers
         }
 
         [Microsoft.AspNetCore.Mvc.HttpGet("All"), Authorize]
-        public IActionResult Get()
+        public IActionResult Get(int? categoryID)
         {
             var userID = _userService.GetUserId();
 
@@ -32,9 +32,16 @@ namespace HermesWebApi.Controllers
 
             string sql = @"
 select T.*,C.CategoryName,  TT.TypeName  from MDTrainings T 
-LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID LEFT JOIN MDTrainingTypes TT ON T.TrType=TT.TypeID  ORDER BY TrainingName";
+LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID 
+LEFT JOIN MDTrainingTypes TT ON T.TrType=TT.TypeID  
+{0}
+ORDER BY TrainingName";
             DataSet ds = new DataSet();
-            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("UserID", userID));
+            if (categoryID is not null && categoryID > 0)
+                sql = string.Format(sql, " WHERE T.Category=@CategoryID ");
+            else
+                sql = string.Format(sql, "");
+            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("CategoryID", categoryID ?? 0));
             if (res != ResultCodes.noError)
                 return NotFound("Data could not be found");
             List<Training> types = new List<Training>();
