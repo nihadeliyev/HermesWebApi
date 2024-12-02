@@ -21,10 +21,11 @@
                 return CompletedTrainingHours + UpcomingTrainingHours;
             }
         }
-
+        public List<TrainingStatistic> TrainingStatistics { get; set; }
         public MainReport()
         {
             CategoryStatistics=new List<CategoryStatistic>();
+            TrainingStatistics=new List<TrainingStatistic>();
         }
 
     }
@@ -36,5 +37,13 @@
         public int TotalDays { get; set; }
         public int TotalHours { get; set; }
 
+    }
+    public class TrainingStatistic { 
+        public int PlanID { get; set; }
+        public string Training { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public int PlannedParticipants { get; set; }
+        public int Participated { get; set;}
     }
 }

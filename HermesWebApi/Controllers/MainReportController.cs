@@ -34,10 +34,48 @@ LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
 LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID
 LEFT JOIN (select P.ID,COUNT(D.ID) TotalDays,  COUNT(D.ID)* convert(float, DATEDIFF(MINUTE, StartTime,EndTime))/60 TotalHours from TRPlannedTrainings P
 			LEFT JOIN TRPlanDates D ON P.ID=D.PlanID GROUP BY P.ID,StartTime,EndTime) PH on P.ID=PH.ID
+{0}
+group by CASE WHEN P.Date_<=getdate() THEN 1 ELSE 0 end, C.CategoryID, C.CategoryName;
 
-group by CASE WHEN P.Date_<=getdate() THEN 1 ELSE 0 end, C.CategoryID, C.CategoryName";
+SELECT P.ID PlanID,
+    T.TrainingID, 
+    T.TrainingName, 
+    cast (P.StartTime as date) StartDate, 
+	cast (P.StartTime as time) StartTime, 
+    cast (MAX(D.Date_) as date) AS EndDate,
+	cast (P.EndTime as time) EndTime,
+	COUNT(DISTINCT PL.EmpID) PlanCount,
+	COUNT(DISTINCT RE.EmpID) FactCount   
+FROM TRPlannedTrainings P
+LEFT JOIN MDTrainings T ON P.TrainingID = T.TrainingID
+LEFT JOIN TRPlanDates D ON P.ID = D.PlanID
+LEFT JOIN TRTrainingParticipants PL ON P.ID=PL.PlanID
+LEFT JOIN TRTrainingParticipated RE ON P.ID=RE.PlanID
+{0}
+GROUP BY 
+	P.ID,
+    T.TrainingID, 
+    T.TrainingName, 
+    P.StartTime, 
+    P.EndTime;
+";
             DataSet ds = new DataSet();
-            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("UserID", userID));
+            string filter = string.Empty;
+            if (categoryID is not null && categoryID > 0)
+                filter += ((filter == "" ? " WHERE " : " AND ") + " T.Category=@CategoryID ");
+            if (trainingID is not null && trainingID > 0)
+                filter += ((filter == "" ? " WHERE " : " AND ") + " P.TrainingID=@TrainingID ");
+            if (fromDate is not null)
+                filter += ((filter == "" ? " WHERE " : " AND ") + " P.Date_>=@FromDate ");
+            if (toDate is not null)
+                filter += ((filter == "" ? " WHERE " : " AND ") + " P.Date_<=@ToDate ");
+            sql = string.Format(sql, filter);
+            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds,
+                new SqlParameter("CategoryID", categoryID ?? 0),
+                new SqlParameter("TrainingID", trainingID ?? 0),
+                new SqlParameter("FromDate", fromDate ?? (object)DBNull.Value),
+                new SqlParameter("ToDate", toDate ?? (object)DBNull.Value)
+                );
             if (res != ResultCodes.noError)
                 return NotFound("Data could not be found");
             MainReport report = new MainReport();
@@ -60,6 +98,21 @@ group by CASE WHEN P.Date_<=getdate() THEN 1 ELSE 0 end, C.CategoryID, C.Categor
             report.UpcomingTraining = report.CategoryStatistics.Where(x => x.Done == false).Sum(k => k.TrainingCount);
             report.CompletedTrainingHours = report.CategoryStatistics.Where(x => x.Done == true).Sum(k => k.TotalHours);
             report.UpcomingTrainingHours = report.CategoryStatistics.Where(x => x.Done == false).Sum(k => k.TotalHours);
+
+            for (int i = 0; i < ds.Tables[1].Rows.Count; i++)
+            {
+                report.TrainingStatistics.Add(
+                    new TrainingStatistic()
+                    {
+                        PlanID = int.Parse(ds.Tables[1].Rows[i]["PlanID"].ToString()),
+                        Training = ds.Tables[1].Rows[i]["TrainingName"].ToString(),
+                        StartDate = DateTime.Parse(ds.Tables[1].Rows[i]["StartDate"].ToString()).Add(TimeSpan.Parse(ds.Tables[1].Rows[i]["StartTime"].ToString())),
+                        EndDate = DateTime.Parse(ds.Tables[1].Rows[i]["EndDate"].ToString()).Add(TimeSpan.Parse(ds.Tables[1].Rows[i]["EndTime"].ToString())),
+                        PlannedParticipants = int.Parse(ds.Tables[1].Rows[i]["PlanCount"].ToString()),
+                        Participated = int.Parse(ds.Tables[1].Rows[i]["FactCount"].ToString())
+                    }
+                    );
+            }
             return Ok(report);
         }
     }
