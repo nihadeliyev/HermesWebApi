@@ -45,12 +45,16 @@ SELECT P.ID PlanID,
     cast (MAX(D.Date_) as date) AS EndDate,
 	cast (P.EndTime as time) EndTime,
 	COUNT(DISTINCT PL.EmpID) PlanCount,
-	COUNT(DISTINCT RE.EmpID) FactCount   
+	COUNT(DISTINCT RE.EmpID) FactCount ,
+	COUNT(DISTINCT EP.EmpName) Passed,
+	COUNT(DISTINCT FA.EmpName) Failed
 FROM TRPlannedTrainings P
 LEFT JOIN MDTrainings T ON P.TrainingID = T.TrainingID
 LEFT JOIN TRPlanDates D ON P.ID = D.PlanID
 LEFT JOIN TRTrainingParticipants PL ON P.ID=PL.PlanID
 LEFT JOIN TRTrainingParticipated RE ON P.ID=RE.PlanID
+LEFT JOIN Vw_TREmployeExams Ep ON P.ID=Ep.PlanID AND EP.TrainingResult='Passed'
+LEFT JOIN Vw_TREmployeExams FA ON P.ID=FA.PlanID AND FA.TrainingResult='Failed'
 {0}
 GROUP BY 
 	P.ID,
@@ -58,6 +62,7 @@ GROUP BY
     T.TrainingName, 
     P.StartTime, 
     P.EndTime;
+
 ";
             DataSet ds = new DataSet();
             string filter = string.Empty;
@@ -109,10 +114,16 @@ GROUP BY
                         StartDate = DateTime.Parse(ds.Tables[1].Rows[i]["StartDate"].ToString()).Add(TimeSpan.Parse(ds.Tables[1].Rows[i]["StartTime"].ToString())),
                         EndDate = DateTime.Parse(ds.Tables[1].Rows[i]["EndDate"].ToString()).Add(TimeSpan.Parse(ds.Tables[1].Rows[i]["EndTime"].ToString())),
                         PlannedParticipants = int.Parse(ds.Tables[1].Rows[i]["PlanCount"].ToString()),
-                        Participated = int.Parse(ds.Tables[1].Rows[i]["FactCount"].ToString())
+                        Participated = int.Parse(ds.Tables[1].Rows[i]["FactCount"].ToString()),
+                        Passed = int.Parse(ds.Tables[1].Rows[i]["Passed"].ToString()),
+                        Failed = int.Parse(ds.Tables[1].Rows[i]["Failed"].ToString())
                     }
                     );
             }
+            report.TotalPlannedParticipants = report.TrainingStatistics.Sum(k => k.PlannedParticipants);
+            report.TotalParticipated = report.TrainingStatistics.Sum(k => k.Participated);
+            report.TotalPassed = report.TrainingStatistics.Sum(k => k.Passed);
+            report.TotalFailed = report.TrainingStatistics.Sum(k => k.Failed);
             return Ok(report);
         }
     }
