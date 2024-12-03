@@ -47,7 +47,9 @@ SELECT P.ID PlanID,
 	COUNT(DISTINCT PL.EmpID) PlanCount,
 	COUNT(DISTINCT RE.EmpID) FactCount ,
 	COUNT(DISTINCT EP.EmpName) Passed,
-	COUNT(DISTINCT FA.EmpName) Failed
+	COUNT(DISTINCT FA.EmpName) Failed,
+	PT.AvgPoint
+	
 FROM TRPlannedTrainings P
 LEFT JOIN MDTrainings T ON P.TrainingID = T.TrainingID
 LEFT JOIN TRPlanDates D ON P.ID = D.PlanID
@@ -55,13 +57,15 @@ LEFT JOIN TRTrainingParticipants PL ON P.ID=PL.PlanID
 LEFT JOIN TRTrainingParticipated RE ON P.ID=RE.PlanID
 LEFT JOIN Vw_TREmployeExams Ep ON P.ID=Ep.PlanID AND EP.TrainingResult='Passed'
 LEFT JOIN Vw_TREmployeExams FA ON P.ID=FA.PlanID AND FA.TrainingResult='Failed'
+LEFT JOIN (SELECT PlanID, AVG(Points) AvgPoint FROM  Vw_TREmployeExams GROUP BY PlanID) PT ON P.ID=PT.PlanID 
 {0}
 GROUP BY 
 	P.ID,
     T.TrainingID, 
     T.TrainingName, 
     P.StartTime, 
-    P.EndTime;
+    P.EndTime,
+	PT.AvgPoint;
 
 ";
             DataSet ds = new DataSet();
@@ -116,9 +120,9 @@ GROUP BY
                         PlannedParticipants = int.Parse(ds.Tables[1].Rows[i]["PlanCount"].ToString()),
                         Participated = int.Parse(ds.Tables[1].Rows[i]["FactCount"].ToString()),
                         Passed = int.Parse(ds.Tables[1].Rows[i]["Passed"].ToString()),
-                        Failed = int.Parse(ds.Tables[1].Rows[i]["Failed"].ToString())
-                    }
-                    );
+                        Failed = int.Parse(ds.Tables[1].Rows[i]["Failed"].ToString()),
+                        AvaragePoint = float.Parse(ds.Tables[1].Rows[i]["AvgPoint"].ToString())
+                    });
             }
             report.TotalPlannedParticipants = report.TrainingStatistics.Sum(k => k.PlannedParticipants);
             report.TotalParticipated = report.TrainingStatistics.Sum(k => k.Participated);
@@ -126,5 +130,15 @@ GROUP BY
             report.TotalFailed = report.TrainingStatistics.Sum(k => k.Failed);
             return Ok(report);
         }
+
+        //[Microsoft.AspNetCore.Mvc.HttpGet("GetTraining"), Authorize]
+        //public IActionResult GetPlan(int planID)
+        //{
+        //    var userID = _userService.GetUserId();
+
+        //    if (userID == null)
+        //        return Unauthorized("Unable to find user information.");
+        //    return Ok();
+        //}
     }
 }
