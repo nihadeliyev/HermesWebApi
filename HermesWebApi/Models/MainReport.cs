@@ -55,4 +55,41 @@
         public int Failed { get; set; }
         public float AvaragePoint { get; set; }
     }
+    public class TrainingPlanDetail
+    {
+        public int PlanID { get; set; }
+        public string TrainingName { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public string StartTime { get; set; }
+        public string EndTime { get; set; }
+        public string Category { get; set; }
+        public string Cordinator { get; set; }
+        public string Room { get; set; }
+        public string Note { get; set; }
+        public string Trainer1 { get; set; }
+        public string Trainer2 { get; set; }
+        public string Trainer3 { get; set; }
+        public int Passpoint { get; set; }
+        public List<Quota> Quotas { get; set; } = new List<Quota>();
+        public List<ParticipantActivity> Participants { get; set; } = new List<ParticipantActivity>();
+
+
+
+
+    }
+    public class Quota
+    {
+        public int? CompanyID { get; set; }
+        public string CompanyName { get; set; }
+        public int ParticipantsCount { get; set; }
+    }
+    public class ParticipantActivity
+    {
+        public int? EmployeID { get; set; }
+        public string EmployeName { get; set; }
+        public bool Participated { get; set; }
+        public float? ExamPoint { get; set; }
+        public bool? Passed { get; set; }
+    }
 }

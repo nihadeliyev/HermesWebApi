@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.VisualBasic;
 using System.Data;
 using System.Data.SqlClient;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace HermesWebApi.Controllers
 {
@@ -65,8 +66,8 @@ GROUP BY
     T.TrainingName, 
     P.StartTime, 
     P.EndTime,
-	PT.AvgPoint;
-
+	PT.AvgPoint
+ORDER BY cast (P.StartTime as date) DESC
 ";
             DataSet ds = new DataSet();
             string filter = string.Empty;
@@ -131,14 +132,85 @@ GROUP BY
             return Ok(report);
         }
 
-        //[Microsoft.AspNetCore.Mvc.HttpGet("GetTraining"), Authorize]
-        //public IActionResult GetPlan(int planID)
-        //{
-        //    var userID = _userService.GetUserId();
+        [Microsoft.AspNetCore.Mvc.HttpGet("GetTraining"), Authorize]
+        public IActionResult GetPlan(int planID)
+        {
+            var userID = _userService.GetUserId();
 
-        //    if (userID == null)
-        //        return Unauthorized("Unable to find user information.");
-        //    return Ok();
-        //}
+            if (userID == null)
+                return Unauthorized("Unable to find user information.");
+            string sql = @"
+SELECT P.ID PlanID, T.TrainingName,cast (P.StartTime as time) StartTime,cast( P.EndTime as time) EndTime,
+C.CategoryID, C.CategoryName, P.Organizator,  T.Passpoint, R.RoomName, P.Notes, TR1.TrainerName Trainer1, 
+TR2.TrainerName Trainer2, TR3.TrainerName Trainer3,
+
+MIN(D.Date_) StartDate, MAX(D.Date_) EndDate
+FROM TRPlannedTrainings P
+LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
+LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID
+LEFT JOIN TRPlanDates D ON P.ID=D.PlanID
+LEFT JOIN MDTrainingRooms R ON P.RoomID=R.RoomID
+LEFT JOIN MDTrainers TR1 ON P.TrainerID=TR1.TrainerID
+LEFT JOIN MDTrainers TR2 ON P.TrainerID2=TR2.TrainerID
+LEFT JOIN MDTrainers TR3 ON P.TrainerID3=TR3.TrainerID
+WHERE P.ID=@ID
+GROUP BY 
+P.ID , T.TrainingName,cast (P.StartTime as time) ,cast( P.EndTime as time) ,
+C.CategoryID, C.CategoryName, P.Organizator,  T.Passpoint, R.RoomName, P.Notes,
+TR1.TrainerName, TR2.TrainerName, TR3.TrainerName;
+
+select C.CompanyID, C.CompanyName, Q.ParticipantCount from TRPlanQuotas Q
+LEFT JOIN MDCompanies C ON Q.CompanyID=C.CompanyID
+WHERE Q.PlanID=@ID;
+
+SELECT E.EmpID, E.EmpName, CASE WHEN PT.EmpID IS NULL THEN 0 ELSE 1 END Participated, ex.AvgResult ExamPoint FROM TRTrainingParticipants P
+LEFT JOIN MDEmployees E ON P.EmpID=E.EmpID
+LEFT JOIN (SELECT PlanID, EmpID FROM TRTrainingParticipated GROUP BY PlanID, EmpID) PT ON P.PlanID=PT.PlanID AND E.EmpID=PT.EmpID
+LEFT JOIN (SELECT PlanID, EmpID, AVG(Points) AvgResult FROM Vw_TREmployeExams GROUP BY PlanID, EmpID) EX ON P.PlanID=EX.PlanID AND P.EmpID=EX.EmpID
+WHERE P.PlanID=@ID
+
+";
+            DataSet ds = new DataSet();
+            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds,
+              new SqlParameter("ID", planID));
+            if (res != ResultCodes.noError || ds.Tables[0].Rows.Count == 0)
+                return NotFound("Data could not be found");
+            TrainingPlanDetail planDetail = new TrainingPlanDetail();
+            planDetail.PlanID = planID;
+            planDetail.Category = ds.Tables[0].Rows[0]["CategoryName"].ToString();
+            planDetail.TrainingName = ds.Tables[0].Rows[0]["TrainingName"].ToString();
+            planDetail.StartDate = DateTime.Parse(ds.Tables[0].Rows[0]["StartDate"].ToString());
+            planDetail.EndDate = DateTime.Parse(ds.Tables[0].Rows[0]["EndDate"].ToString());
+            planDetail.StartTime = ds.Tables[0].Rows[0]["StartTime"].ToString();
+            planDetail.EndTime = ds.Tables[0].Rows[0]["EndTime"].ToString();
+            planDetail.Cordinator = ds.Tables[0].Rows[0]["Organizator"].ToString();
+            planDetail.Room = ds.Tables[0].Rows[0]["RoomName"].ToString();
+            planDetail.Note = ds.Tables[0].Rows[0]["Notes"].ToString();
+            planDetail.Trainer1 = ds.Tables[0].Rows[0]["Trainer1"].ToString();
+            planDetail.Trainer2 = ds.Tables[0].Rows[0]["Trainer2"].ToString();
+            planDetail.Trainer3 = ds.Tables[0].Rows[0]["Trainer3"].ToString();
+            planDetail.Passpoint = int.Parse(ds.Tables[0].Rows[0]["Passpoint"].ToString());
+            for (int i = 0; i < ds.Tables[1].Rows.Count; i++)
+                planDetail.Quotas.Add(new Quota()
+                {
+                    CompanyID = int.Parse(ds.Tables[1].Rows[i]["CompanyID"].ToString()),
+                    ParticipantsCount = int.Parse(ds.Tables[1].Rows[i]["ParticipantCount"].ToString()),
+                    CompanyName = ds.Tables[1].Rows[i]["CompanyName"].ToString()
+                });
+            for (int i = 0; i < ds.Tables[2].Rows.Count; i++)
+            {
+                var participant = new ParticipantActivity()
+                {
+                    EmployeID = int.Parse(ds.Tables[2].Rows[i]["EmpID"].ToString()),
+                    EmployeName = ds.Tables[2].Rows[i]["EmpName"].ToString(),
+                    Participated = ds.Tables[2].Rows[i]["Participated"].ToString() == "1",
+                    ExamPoint = ds.Tables[2].Rows[i]["ExamPoint"].ToString() == "" ? null : float.Parse(ds.Tables[2].Rows[i]["ExamPoint"].ToString())
+                };
+                if (participant.ExamPoint is not null)
+                    participant.Passed = planDetail.Passpoint <= participant.ExamPoint;
+                planDetail.Participants.Add(participant);
+            }
+            return Ok(planDetail);
+        }
     }
 }
