@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.VisualBasic;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -67,7 +68,26 @@ GROUP BY
     P.StartTime, 
     P.EndTime,
 	PT.AvgPoint
-ORDER BY cast (P.StartTime as date) DESC
+ORDER BY cast (P.StartTime as date) DESC;
+SELECT C.CategoryName, P.Date_, COUNT(P.ID) TrainingCount  FROM TRPlannedTrainings P
+LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
+LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID
+GROUP BY  C.CategoryName, P.Date_
+ORDER BY  C.CategoryName, P.Date_;
+
+SELECT C.CategoryName, P.Date_, COUNT(P.ID) TrainingCount  FROM TRPlannedTrainings P
+LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
+LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID
+{0}
+GROUP BY  C.CategoryName, P.Date_
+ORDER BY  C.CategoryName, P.Date_
+
+SELECT C.CategoryName  FROM TRPlannedTrainings P
+LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
+LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID
+{0}
+GROUP BY  C.CategoryName
+ORDER BY  C.CategoryName
 ";
             DataSet ds = new DataSet();
             string filter = string.Empty;
@@ -118,17 +138,60 @@ ORDER BY cast (P.StartTime as date) DESC
                         Training = ds.Tables[1].Rows[i]["TrainingName"].ToString(),
                         StartDate = DateTime.Parse(ds.Tables[1].Rows[i]["StartDate"].ToString()).Add(TimeSpan.Parse(ds.Tables[1].Rows[i]["StartTime"].ToString())),
                         EndDate = DateTime.Parse(ds.Tables[1].Rows[i]["EndDate"].ToString()).Add(TimeSpan.Parse(ds.Tables[1].Rows[i]["EndTime"].ToString())),
-                        PlannedParticipants = int.Parse(ds.Tables[1].Rows[i]["PlanCount"].ToString()),
-                        Participated = int.Parse(ds.Tables[1].Rows[i]["FactCount"].ToString()),
-                        Passed = int.Parse(ds.Tables[1].Rows[i]["Passed"].ToString()),
-                        Failed = int.Parse(ds.Tables[1].Rows[i]["Failed"].ToString()),
-                        AvaragePoint = float.Parse(ds.Tables[1].Rows[i]["AvgPoint"].ToString())
+                        PlannedParticipants = ds.Tables[1].Rows[i]["PlanCount"].ToString() == "" ? 0 : int.Parse(ds.Tables[1].Rows[i]["PlanCount"].ToString()),
+                        Participated = ds.Tables[1].Rows[i]["FactCount"].ToString() == "" ? 0 : int.Parse(ds.Tables[1].Rows[i]["FactCount"].ToString()),
+                        Passed = ds.Tables[1].Rows[i]["Passed"].ToString() == "" ? 0 : int.Parse(ds.Tables[1].Rows[i]["Passed"].ToString()),
+                        Failed = ds.Tables[1].Rows[i]["Failed"].ToString() == "" ? 0 : int.Parse(ds.Tables[1].Rows[i]["Failed"].ToString()),
+                        AvaragePoint = ds.Tables[1].Rows[i]["AvgPoint"].ToString() == "" ? 0 : float.Parse(ds.Tables[1].Rows[i]["AvgPoint"].ToString())
                     });
             }
             report.TotalPlannedParticipants = report.TrainingStatistics.Sum(k => k.PlannedParticipants);
             report.TotalParticipated = report.TrainingStatistics.Sum(k => k.Participated);
             report.TotalPassed = report.TrainingStatistics.Sum(k => k.Passed);
             report.TotalFailed = report.TrainingStatistics.Sum(k => k.Failed);
+            Dictionary<string, List<int>> graphData = new Dictionary<string, List<int>>();
+            if (report.TrainingStatistics.Count > 0)
+            {
+                DateTime from = report.TrainingStatistics.Min(p => p.StartDate);
+                DateTime to = report.TrainingStatistics.Max(p => p.StartDate);
+
+                int numberOfDays = to.Subtract(from).Days;
+                List<string> keys = new List<string>();
+                for (int i = 0; i < numberOfDays + 1; i++)
+                {
+
+                    if (i == 0)
+                    {
+                        for (int j = 0; j < ds.Tables[4].Rows.Count; j++)
+                            graphData.Add(ds.Tables[4].Rows[j]["CategoryName"].ToString(), new List<int>());
+                        keys = new List<string>(graphData.Keys);
+                    }
+                    DateTime currDate = from.AddDays(i);
+
+                    for (int j = 0; j < keys.Count; j++)
+                    {
+                        DataRow[] drs = ds.Tables[3].Select("Date_='" + currDate.ToString("MM.dd.yyyy") + "' AND CategoryName='" + keys[j] + "'");
+                        if (drs.Length == 0)
+                            graphData[keys[j]].Add(0);
+                        else
+                            graphData[keys[j]].Add(int.Parse(drs[0]["TrainingCount"].ToString()));
+
+                    }
+                }
+            }
+            var totalList = new List<int>();
+
+            int maxLength = graphData.Values.Max(list => list.Count);
+
+            for (int i = 0; i < maxLength; i++)
+            {
+                int sum = graphData.Values.Sum(list => list.ElementAtOrDefault(i));
+                totalList.Add(sum);
+            }
+
+            // Add "Total" to the dictionary
+            graphData.Add("Total", totalList);
+            report.DashboardData = graphData;
             return Ok(report);
         }
 

@@ -26,7 +26,8 @@
         public int TotalPassed { get; set; }
         public int TotalFailed { get; set; }
         public List<TrainingStatistic> TrainingStatistics { get; set; }
-
+        //public GraphData DashboardData { get; set; } = new GraphData();
+        public Dictionary<string, List<int>> DashboardData { get; set; }
         public MainReport()
         {
             CategoryStatistics = new List<CategoryStatistic>();
@@ -76,7 +77,6 @@
 
 
 
-
     }
     public class Quota
     {
@@ -91,5 +91,9 @@
         public bool Participated { get; set; }
         public float? ExamPoint { get; set; }
         public bool? Passed { get; set; }
+    }
+    public class GraphData
+    {
+        public Dictionary<string, List<int>> Values = new Dictionary<string, List<int>>();
     }
 }
