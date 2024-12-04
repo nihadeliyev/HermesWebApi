@@ -178,19 +178,20 @@ ORDER BY  C.CategoryName
 
                     }
                 }
+                var totalList = new List<int>();
+
+                int maxLength = graphData.Values.Max(list => list.Count);
+
+                for (int i = 0; i < maxLength; i++)
+                {
+                    int sum = graphData.Values.Sum(list => list.ElementAtOrDefault(i));
+                    totalList.Add(sum);
+                }
+
+                // Add "Total" to the dictionary
+                graphData.Add("Total", totalList);
             }
-            var totalList = new List<int>();
-
-            int maxLength = graphData.Values.Max(list => list.Count);
-
-            for (int i = 0; i < maxLength; i++)
-            {
-                int sum = graphData.Values.Sum(list => list.ElementAtOrDefault(i));
-                totalList.Add(sum);
-            }
-
-            // Add "Total" to the dictionary
-            graphData.Add("Total", totalList);
+            
             report.DashboardData = graphData;
             return Ok(report);
         }
