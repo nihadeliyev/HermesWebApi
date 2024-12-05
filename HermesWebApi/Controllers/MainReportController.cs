@@ -188,7 +188,39 @@ ORDER BY  C.CategoryName
                 // Add "Total" to the dictionary
                 graphData.Add("Total", totalList);
             }
-            
+            else
+            {
+                DateTime to = toDate ?? DateTime.Now;
+                DateTime from = fromDate ?? to.AddMonths(-1);
+
+                int numberOfDays = to.Subtract(from).Days;
+                List<string> keys = new List<string>();
+                for (int i = 0; i < numberOfDays + 1; i++)
+                {
+
+                    if (i == 0)
+                    {
+                        for (int j = 0; j < ds.Tables[4].Rows.Count; j++)
+                            graphData.Add(ds.Tables[4].Rows[j]["CategoryName"].ToString(), new List<int>());
+                        keys = new List<string>(graphData.Keys);
+                    }
+                    DateTime currDate = from.AddDays(i);
+                    for (int j = 0; j < keys.Count; j++)
+                        graphData[keys[j]].Add(0);
+
+                }
+                var totalList = new List<int>();
+                int maxLength = graphData.Values.Max(list => list.Count);
+                for (int i = 0; i < maxLength; i++)
+                {
+                    int sum = graphData.Values.Sum(list => list.ElementAtOrDefault(i));
+                    totalList.Add(sum);
+                }
+
+                // Add "Total" to the dictionary
+                graphData.Add("Total", totalList);
+            }
+
             report.DashboardData = graphData;
             return Ok(report);
         }
