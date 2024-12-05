@@ -82,10 +82,7 @@ LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID
 GROUP BY  C.CategoryName, P.Date_
 ORDER BY  C.CategoryName, P.Date_
 
-SELECT C.CategoryName  FROM TRPlannedTrainings P
-LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
-LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID
-{0}
+SELECT C.CategoryName  FROM MDTrainingCategories C
 GROUP BY  C.CategoryName
 ORDER BY  C.CategoryName
 ";
