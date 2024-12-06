@@ -149,8 +149,8 @@ ORDER BY  C.CategoryName
             Dictionary<string, List<int>> graphData = new Dictionary<string, List<int>>();
             if (report.TrainingStatistics.Count > 0)
             {
-                DateTime from = report.TrainingStatistics.Min(p => p.StartDate);
-                DateTime to = report.TrainingStatistics.Max(p => p.StartDate);
+                DateTime from = fromDate ?? report.TrainingStatistics.Min(p => p.StartDate);
+                DateTime to = toDate ?? report.TrainingStatistics.Max(p => p.StartDate);
 
                 int numberOfDays = to.Subtract(from).Days;
                 List<string> keys = new List<string>();
