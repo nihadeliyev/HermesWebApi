@@ -115,9 +115,9 @@ ORDER BY  C.CategoryName
                         ID = ds.Tables[0].Rows[i]["CategoryID"].ToString(),
                         Name = ds.Tables[0].Rows[i]["CategoryName"].ToString()
                     },
-                    TrainingCount = int.Parse(ds.Tables[0].Rows[i]["PlanCount"].ToString()),
-                    TotalDays = int.Parse(ds.Tables[0].Rows[i]["TotalDays"].ToString()),
-                    TotalHours = int.Parse(ds.Tables[0].Rows[i]["TotalHours"].ToString()),
+                    TrainingCount = ds.Tables[0].Rows[i]["PlanCount"].ToString() == "" ? 0 : int.Parse(ds.Tables[0].Rows[i]["PlanCount"].ToString()),
+                    TotalDays = ds.Tables[0].Rows[i]["TotalDays"].ToString() == "" ? 0 : int.Parse(ds.Tables[0].Rows[i]["TotalDays"].ToString()),
+                    TotalHours = ds.Tables[0].Rows[i]["TotalHours"].ToString() == "" ? 0 : int.Parse(ds.Tables[0].Rows[i]["TotalHours"].ToString()),
                     Done = ds.Tables[0].Rows[i]["Done"].ToString() == "1"
                 });
             }
