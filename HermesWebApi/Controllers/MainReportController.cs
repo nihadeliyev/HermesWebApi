@@ -36,7 +36,7 @@ LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
 LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID
 LEFT JOIN (select P.ID,COUNT(D.ID) TotalDays,  COUNT(D.ID)* convert(float, DATEDIFF(MINUTE, StartTime,EndTime))/60 TotalHours from TRPlannedTrainings P
 			LEFT JOIN TRPlanDates D ON P.ID=D.PlanID GROUP BY P.ID,StartTime,EndTime) PH on P.ID=PH.ID
-{0}
+{0} 
 group by CASE WHEN P.Date_<=getdate() THEN 1 ELSE 0 end, C.CategoryID, C.CategoryName;
 
 SELECT P.ID PlanID,
@@ -50,17 +50,16 @@ SELECT P.ID PlanID,
 	COUNT(DISTINCT RE.EmpID) FactCount ,
 	COUNT(DISTINCT EP.EmpName) Passed,
 	COUNT(DISTINCT FA.EmpName) Failed,
-	PT.AvgPoint
-	
+	PT.AvgPoint	
 FROM TRPlannedTrainings P
 LEFT JOIN MDTrainings T ON P.TrainingID = T.TrainingID
 LEFT JOIN TRPlanDates D ON P.ID = D.PlanID
-LEFT JOIN TRTrainingParticipants PL ON P.ID=PL.PlanID
-LEFT JOIN TRTrainingParticipated RE ON P.ID=RE.PlanID
-LEFT JOIN Vw_TREmployeExams Ep ON P.ID=Ep.PlanID AND EP.TrainingResult='Passed'
-LEFT JOIN Vw_TREmployeExams FA ON P.ID=FA.PlanID AND FA.TrainingResult='Failed'
+LEFT JOIN TRTrainingParticipants PL ON P.ID=PL.PlanID {1}
+LEFT JOIN TRTrainingParticipated RE ON P.ID=RE.PlanID {2}
+LEFT JOIN Vw_TREmployeExams Ep ON P.ID=Ep.PlanID AND EP.TrainingResult='Passed' {3}
+LEFT JOIN Vw_TREmployeExams FA ON P.ID=FA.PlanID AND FA.TrainingResult='Failed' {4}
 LEFT JOIN (SELECT PlanID, AVG(Points) AvgPoint FROM  Vw_TREmployeExams GROUP BY PlanID) PT ON P.ID=PT.PlanID 
-{0}
+{0} 
 GROUP BY 
 	P.ID,
     T.TrainingID, 
@@ -69,16 +68,13 @@ GROUP BY
     P.EndTime,
 	PT.AvgPoint
 ORDER BY cast (P.StartTime as date) DESC;
-SELECT C.CategoryName, P.Date_, COUNT(P.ID) TrainingCount  FROM TRPlannedTrainings P
-LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
-LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID
-GROUP BY  C.CategoryName, P.Date_
-ORDER BY  C.CategoryName, P.Date_;
+
+select 1;
 
 SELECT C.CategoryName, P.Date_, COUNT(P.ID) TrainingCount  FROM TRPlannedTrainings P
 LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
 LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID
-{0}
+{0} 
 GROUP BY  C.CategoryName, P.Date_
 ORDER BY  C.CategoryName, P.Date_
 
@@ -93,7 +89,7 @@ LEFT JOIN MDEmployees E ON PT.EmpID=E.EmpID
 LEFT JOIN MDCompanies C ON E.CompanyID=C.CompanyID 
 LEFT JOIN TRPlannedTrainings P ON PT.PlanID=P.ID
 LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
-{0}
+{0} {5}
 GROUP BY  PlanID, C.CompanyName) A group by CompanyName) P
  JOIN 
 (SELECT CompanyName,SUM(Participated) Participated FROM (
@@ -102,9 +98,10 @@ LEFT JOIN MDEmployees E ON PT.EmpID=E.EmpID
 LEFT JOIN MDCompanies C ON E.CompanyID=C.CompanyID
 LEFT JOIN TRPlannedTrainings P ON PT.PlanID=P.ID
 LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
-{0}
+{0} {5}
 GROUP BY  PlanID, C.CompanyName) A group by CompanyName) A ON P.COMPANYNAME=A.COMPANYNAME
 ";
+            string companyFilter = " P.ID IN(SELECT  PRT.PlanID FROM TRTrainingParticipated PRT left join MDEmployees EM ON PRT.EmpID = EM.EmpID WHERE EM.CompanyID = @CompanyID)";
             DataSet ds = new DataSet();
             string filter = string.Empty;
             if (categoryID is not null && categoryID > 0)
@@ -115,10 +112,21 @@ GROUP BY  PlanID, C.CompanyName) A group by CompanyName) A ON P.COMPANYNAME=A.CO
                 filter += ((filter == "" ? " WHERE " : " AND ") + " P.Date_>=@FromDate ");
             if (toDate is not null)
                 filter += ((filter == "" ? " WHERE " : " AND ") + " P.Date_<=@ToDate ");
-            sql = string.Format(sql, filter);
+            if ((companyID ?? 0) > 0)
+                filter += ((filter == "" ? " WHERE " : " AND ") + companyFilter);
+            sql = string.Format(sql, filter,
+                (companyID ?? 0) == 0 ? "" : " AND (PL.EmpID  IN (SELECT EmpID FROM MDEMPLOYEES WHERE CompanyID =@CompanyID)) ", //{1}
+                (companyID ?? 0) == 0 ? "" : " AND (RE.EmpID  IN (SELECT EmpID FROM MDEMPLOYEES WHERE CompanyID =@CompanyID)) ", //{2}
+                (companyID ?? 0) == 0 ? "" : " AND (Ep.EmpID  IN (SELECT EmpID FROM MDEMPLOYEES WHERE CompanyID =@CompanyID)) ", //{3}
+                (companyID ?? 0) == 0 ? "" : " AND (Fa.EmpID  IN (SELECT EmpID FROM MDEMPLOYEES WHERE CompanyID =@CompanyID)) ", //{4}
+                (companyID ?? 0) == 0 ? "" : " AND C.CompanyID =@CompanyID " //{5}
+                                                                                                                                // (companyID ?? 0) == 0 ? "" : " WHERE P.ID IN(SELECT  PRT.PlanID FROM TRTrainingParticipated PRT left join MDEmployees EM ON PRT.EmpID = EM.EmpID WHERE EM.CompanyID = @CompanyID) " //{5}
+                                                                                                                                //(companyID ?? 0) == 0 ? "" : ((filter == "" ? " WHERE " : " AND ") + " P.ID IN(SELECT  PRT.PlanID FROM TRTrainingParticipated PRT left join MDEmployees EM ON PRT.EmpID = EM.EmpID WHERE EM.CompanyID = @CompanyID) ") //{6}
+                );
             ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds,
                 new SqlParameter("CategoryID", categoryID ?? 0),
                 new SqlParameter("TrainingID", trainingID ?? 0),
+                new SqlParameter("CompanyID", companyID ?? (object)DBNull.Value),
                 new SqlParameter("FromDate", fromDate ?? (object)DBNull.Value),
                 new SqlParameter("ToDate", toDate ?? (object)DBNull.Value)
                 );
