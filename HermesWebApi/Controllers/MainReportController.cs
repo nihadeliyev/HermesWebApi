@@ -84,7 +84,26 @@ ORDER BY  C.CategoryName, P.Date_
 
 SELECT C.CategoryName  FROM MDTrainingCategories C
 GROUP BY  C.CategoryName
-ORDER BY  C.CategoryName
+ORDER BY  C.CategoryName;
+
+select P.CompanyName,P.Planed,A.Participated from 
+(SELECT CompanyName,SUM(Planed) Planed FROM (
+select PlanID, C.CompanyName,COUNT(DISTINCT E.EMPID) Planed from TRTrainingParticipants PT 
+LEFT JOIN MDEmployees E ON PT.EmpID=E.EmpID 
+LEFT JOIN MDCompanies C ON E.CompanyID=C.CompanyID 
+LEFT JOIN TRPlannedTrainings P ON PT.PlanID=P.ID
+LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
+{0}
+GROUP BY  PlanID, C.CompanyName) A group by CompanyName) P
+ JOIN 
+(SELECT CompanyName,SUM(Participated) Participated FROM (
+select PlanID, C.CompanyName,COUNT(DISTINCT E.EMPID) Participated from TRTrainingParticipated PT
+LEFT JOIN MDEmployees E ON PT.EmpID=E.EmpID 
+LEFT JOIN MDCompanies C ON E.CompanyID=C.CompanyID
+LEFT JOIN TRPlannedTrainings P ON PT.PlanID=P.ID
+LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
+{0}
+GROUP BY  PlanID, C.CompanyName) A group by CompanyName) A ON P.COMPANYNAME=A.COMPANYNAME
 ";
             DataSet ds = new DataSet();
             string filter = string.Empty;
@@ -220,7 +239,15 @@ ORDER BY  C.CategoryName
                 // Add "Total" to the dictionary
                 graphData.Add("Total", totalList);
             }
-
+            for (int i = 0; i < ds.Tables[5].Rows.Count; i++)
+            {
+                report.ParticipantsByCompany.Add(new CompanyParticipant()
+                {
+                    Company = ds.Tables[5].Rows[i]["CompanyName"].ToString(),
+                    Planned = ds.Tables[5].Rows[i]["Planed"].ToString() == "" ? 0 : int.Parse(ds.Tables[5].Rows[i]["Planed"].ToString()),
+                    Participated = ds.Tables[5].Rows[i]["Participated"].ToString() == "" ? 0 : int.Parse(ds.Tables[5].Rows[i]["Participated"].ToString())
+                });
+            }
             report.DashboardData = graphData;
             return Ok(report);
         }

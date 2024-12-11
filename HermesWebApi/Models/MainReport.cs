@@ -26,7 +26,7 @@
         public int TotalPassed { get; set; }
         public int TotalFailed { get; set; }
         public List<TrainingStatistic> TrainingStatistics { get; set; }
-        //public GraphData DashboardData { get; set; } = new GraphData();
+        public List<CompanyParticipant> ParticipantsByCompany { get; set; } = new List<CompanyParticipant>();
         public Dictionary<string, List<int>> DashboardData { get; set; }
         public MainReport()
         {
@@ -91,6 +91,11 @@
         public bool Participated { get; set; }
         public float? ExamPoint { get; set; }
         public bool? Passed { get; set; }
+    }
+    public class CompanyParticipant { 
+        public string Company { get; set; }
+        public int Planned { get; set; }
+        public int Participated { get; set; }
     }
     public class GraphData
     {
