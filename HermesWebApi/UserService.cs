@@ -18,8 +18,14 @@ namespace HermesWebApi
         // Method to get the userID from the current request's JWT token
         public string GetUserId()
         {
-            var user = _httpContextAccessor.HttpContext?.User;
-            return user?.FindFirstValue("userID"); // Or use the correct claim type like "sub"
+            try
+            {
+                var user = _httpContextAccessor.HttpContext?.User;
+                return user?.FindFirstValue("userID"); // Or use the correct claim type like "sub"
+            }
+            catch {
+                return null;
+            }
         }
     }
 }

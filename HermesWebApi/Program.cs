@@ -104,11 +104,13 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 //sonradan elave edildi
 app.UseCors("AllowAll");
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+//if (app.Environment.IsDevelopment())
+//{
+//    app.UseSwagger();
+//    app.UseSwaggerUI();
+//}
+app.UseSwagger();
+app.UseSwaggerUI();
 // Use Authentication & Authorization
 app.UseAuthentication();
 app.UseAuthorization();

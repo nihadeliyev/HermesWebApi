@@ -26,18 +26,19 @@ namespace HermesWebApi.Controllers
         public IActionResult Login([FromBody] Login login)
         {
             string role;
-            string? userID = IsAuthenticated(login.Username, login.Password, out role);
+            List<UserRole> roles = new List<UserRole>();
+            string? userID = IsAuthenticated(login.Username, login.Password, out roles);
             if (userID != null)
             {
                 var token = GenerateJwtToken(userID ?? "");
 
-                return Ok(new { token, role });
+                return Ok(new { token, roles });
             }
 
             return Unauthorized("Invalid username or password.");
         }
 
-        private string? IsAuthenticated(string usr, string pwd, out string role)
+        private string? IsAuthenticated(string usr, string pwd, out List<UserRole> roles)
         {
 #pragma warning disable CS0219 // The variable 'adServer' is assigned but its value is never used
             string adServer = "poi.lan";
@@ -49,12 +50,16 @@ namespace HermesWebApi.Controllers
             ResultCode result;
             DataSet ds = new DataSet();
             SqlConnection gCon = new SqlConnection(_configuration["ConnectionStrings:Default"]);
-
+            //role = "";
+            roles = new List<UserRole>();
             if (!usr.Contains("@"))
             {
-                sql = "SELECT U.UserID, U.UserName, AllowedIP, PositionID, MailAddress, DeptID, AllowedIP, CompanyID, R.RoleName FROM MDUsers U LEFT JOIN MDUserRoles R ON U.RoleID=R.RoleID WHERE UserCode=@Code AND PWDCOMPARE(@Password,Password_)=1 AND Active=1";
+                sql = @"SELECT U.UserID, U.UserName, AllowedIP, PositionID, MailAddress, DeptID, AllowedIP, CompanyID, R.RoleName 
+FROM MDUsers U 
+LEFT JOIN MDUserRoles R ON U.RoleID=R.RoleID WHERE UserCode=@Code AND PWDCOMPARE(@Password,Password_)=1 AND Active=1;
+";
                 sql = string.Format(sql, usr, pwd);
-                role = "";
+
                 result = Db.GetDbDataWithConnectionSessionless(ref gCon, sql, ref ds, new SqlParameter("Code", usr), new SqlParameter("Password", pwd));
                 if (result.Equals(ResultCodes.dbError))
                 {
@@ -71,10 +76,23 @@ namespace HermesWebApi.Controllers
                 else
                 {
                     authenticated = true;
+                    DataSet dsRoles = new DataSet();
+                    sql = "SELECT AR.RoleID, UR.RoleName FROM MDUserAccessRoles AR LEFT JOIN MDUserRoles UR ON AR.RoleID=UR.RoleID WHERE AR.UserID=@UserID";
+                    result = Db.GetDbDataWithConnectionSessionless(ref gCon, sql, ref dsRoles, new SqlParameter("UserID", ds.Tables[0].Rows[0]["UserID"].ToString()));
+                    if (result.Equals(ResultCodes.noError))
+                    {
+                        for (int i = 0; i < dsRoles.Tables[0].Rows.Count; i++)
+                        {
+                            roles.Add(new UserRole()
+                            {
+                                ID = dsRoles.Tables[0].Rows[i]["RoleID"].ToString(),
+                                Name = dsRoles.Tables[0].Rows[i]["RoleName"].ToString()
+                            });
+                        }
+                    }
                 }
             }
-
-            role = ds.Tables[0].Rows[0]["RoleName"].ToString();
+            // role = ds.Tables[0].Rows[0]["RoleName"].ToString();
             return ds.Tables[0].Rows[0]["UserID"].ToString();
         }
 

@@ -15,9 +15,13 @@ namespace HermesWebApi.Models
         public string? ADAccount { get; set; }
         public bool Status { get; set; }
         public string RoleID { get; set; }
+        public int Gender { get; set; }
+
         public string? RoleName { get; set; }
         public string PositionID {  get; set; }
+        public string DepartmentID {  get; set; }
         public string? PositionName { get; set; }
+        public List<UserRole>? Roles { get; set; }
         public List<UserFrameRight>? FrameRights { get; set; }
 
     }

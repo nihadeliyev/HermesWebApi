@@ -34,7 +34,7 @@ namespace HermesWebApi.Controllers
 SELECT CASE WHEN P.Date_<=getdate() THEN 1 ELSE 0 end AS Done, C.CategoryID, C.CategoryName,  COUNT(P.ID) PlanCount, SUM(PH.TotalDays) TotalDays, SUM(PH.TotalHours) TotalHours  FROM TRPlannedTrainings P 
 LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
 LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID
-LEFT JOIN (select P.ID,COUNT(D.ID) TotalDays,  COUNT(D.ID)* convert(float, DATEDIFF(MINUTE, StartTime,EndTime))/60 TotalHours from TRPlannedTrainings P
+LEFT JOIN (select P.ID,COUNT(D.ID) TotalDays,  COUNT(D.ID)* convert(float, DATEDIFF(MINUTE, cast(StartTime as time), cast(EndTime as time)))/60 TotalHours from TRPlannedTrainings P
 			LEFT JOIN TRPlanDates D ON P.ID=D.PlanID GROUP BY P.ID,StartTime,EndTime) PH on P.ID=PH.ID
 {0} 
 group by CASE WHEN P.Date_<=getdate() THEN 1 ELSE 0 end, C.CategoryID, C.CategoryName;
@@ -98,10 +98,10 @@ LEFT JOIN MDEmployees E ON PT.EmpID=E.EmpID
 LEFT JOIN MDCompanies C ON E.CompanyID=C.CompanyID
 LEFT JOIN TRPlannedTrainings P ON PT.PlanID=P.ID
 LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
-{0} {5}
+{0} 
 GROUP BY  PlanID, C.CompanyName) A group by CompanyName) A ON P.COMPANYNAME=A.COMPANYNAME
 ";
-            string companyFilter = " P.ID IN(SELECT  PRT.PlanID FROM TRTrainingParticipated PRT left join MDEmployees EM ON PRT.EmpID = EM.EmpID WHERE EM.CompanyID = @CompanyID)";
+            string companyFilter = " P.ID IN(SELECT  PRT.PlanID FROM TRTrainingParticipants PRT left join MDEmployees EM ON PRT.EmpID = EM.EmpID WHERE EM.CompanyID = @CompanyID)";
             DataSet ds = new DataSet();
             string filter = string.Empty;
             if (categoryID is not null && categoryID > 0)
