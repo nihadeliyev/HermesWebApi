@@ -97,7 +97,7 @@ SELECT AR.RoleID, UR.RoleName FROM MDUserAccessRoles AR LEFT JOIN MDUserRoles UR
             usr.Status = bool.Parse(ds.Tables[0].Rows[0]["Status"].ToString());
             usr.RoleID = ds.Tables[0].Rows[0]["RoleID"].ToString() == "" ? "0" : ds.Tables[0].Rows[0]["RoleID"].ToString();
             usr.RoleName = ds.Tables[0].Rows[0]["RoleName"].ToString();
-            usr.Gender = ds.Tables[0].Rows[0]["Gender"].ToString() == "" ? 1 : (bool.Parse(ds.Tables[0].Rows[0]["Gender"].ToString()) ? 1 : 0);
+            usr.Gender = ds.Tables[0].Rows[0]["Gender"].ToString() == "" ? 1 : (int.Parse(ds.Tables[0].Rows[0]["Gender"].ToString()));
             usr.FrameRights = new List<UserFrameRight>();
             usr.Roles = new List<UserRole>();
             for (int i = 0; i < ds.Tables[1].Rows.Count; i++)
@@ -128,7 +128,7 @@ SELECT AR.RoleID, UR.RoleName FROM MDUserAccessRoles AR LEFT JOIN MDUserRoles UR
         }
         [Authorize]
         [Microsoft.AspNetCore.Mvc.HttpGet("All")]
-        public IActionResult Get()
+        public IActionResult Get(int pageNumber, int pageSize)
         {
             var userID = _userService.GetUserId();
 
@@ -139,9 +139,12 @@ SELECT AR.RoleID, UR.RoleName FROM MDUserAccessRoles AR LEFT JOIN MDUserRoles UR
 SELECT U.*,C.CompanyName, UR.RoleName FROM MDUsers U 
 LEFT JOIN MDCompanies C ON U.CompanyID=C.CompanyID 
 LEFT JOIN MDUserRoles UR ON U.RoleID=UR.RoleID
-ORDER BY U.UserID DESC";
+ORDER BY U.UserID DESC
+OFFSET @Start ROWS FETCH NEXT @RowCount ROWS ONLY;
+SELECT COUNT(*) FROM MDUsers;
+";
             DataSet ds = new DataSet();
-            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("UserID", userID));
+            ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds, new SqlParameter("UserID", userID), new SqlParameter("Start", (pageNumber - 1) * pageSize), new SqlParameter("RowCount", pageSize));
             if (res != ResultCodes.noError)
                 return NotFound("User could not be found");
             List<User> users = new List<User>();
@@ -158,13 +161,18 @@ ORDER BY U.UserID DESC";
                 usr.Status = bool.Parse(ds.Tables[0].Rows[i]["Status"].ToString());
                 usr.RoleID = ds.Tables[0].Rows[i]["RoleID"].ToString() == "" ? "0" : ds.Tables[0].Rows[i]["RoleID"].ToString();
                 usr.RoleName = ds.Tables[0].Rows[i]["RoleName"].ToString();
-                usr.Gender = ds.Tables[0].Rows[i]["Gender"].ToString() == "" ? 1 : (bool.Parse(ds.Tables[0].Rows[i]["Gender"].ToString()) ? 1 : 0);
+                usr.Gender = ds.Tables[0].Rows[i]["Gender"].ToString() == "" ? 1 : (int.Parse(ds.Tables[0].Rows[i]["Gender"].ToString()));
                 usr.PositionID = ds.Tables[0].Rows[i]["PositionID"].ToString() == "" ? "0" : ds.Tables[0].Rows[i]["PositionID"].ToString();
                 usr.DepartmentID = ds.Tables[0].Rows[i]["DeptID"].ToString() == "" ? "0" : ds.Tables[0].Rows[i]["DeptID"].ToString();
                 users.Add(usr);
             }
-
-            return Ok(users);
+            DataList<User> dl = new DataList<User>();
+            dl.PageSize = pageSize;
+            dl.CurrentPage = pageNumber;
+            dl.RowCount = int.Parse(ds.Tables[1].Rows[0][0].ToString());
+            dl.Data = users;
+            return Ok(dl);
+            //return Ok(users);
         }
 
 
