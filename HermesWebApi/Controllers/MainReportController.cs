@@ -23,7 +23,7 @@ namespace HermesWebApi.Controllers
         }
 
         [Microsoft.AspNetCore.Mvc.HttpGet("All"), Authorize]
-        public IActionResult Get(int? companyID, int? categoryID, int? trainingID, DateTime? fromDate, DateTime? toDate)
+        public IActionResult Get(int? companyID, string? categoryIDs, int? trainingID, DateTime? fromDate, DateTime? toDate, int roleID = 0)
         {
             var userID = _userService.GetUserId();
 
@@ -39,7 +39,7 @@ LEFT JOIN (select P.ID,COUNT(D.ID) TotalDays,  COUNT(D.ID)* convert(float, DATED
 {0} 
 group by CASE WHEN P.Date_<=getdate() THEN 1 ELSE 0 end, C.CategoryID, C.CategoryName;
 
-SELECT P.ID PlanID,
+SELECT P.ID PlanID, R.RoomName,
     T.TrainingID, 
     T.TrainingName, 
     cast (P.StartTime as date) StartDate, 
@@ -52,6 +52,7 @@ SELECT P.ID PlanID,
 	COUNT(DISTINCT FA.EmpName) Failed,
 	PT.AvgPoint	
 FROM TRPlannedTrainings P
+LEFT JOIN MDTrainingRooms R ON P.RoomID = R.RoomID
 LEFT JOIN MDTrainings T ON P.TrainingID = T.TrainingID
 LEFT JOIN TRPlanDates D ON P.ID = D.PlanID
 LEFT JOIN TRTrainingParticipants PL ON P.ID=PL.PlanID {1}
@@ -62,6 +63,7 @@ LEFT JOIN (SELECT PlanID, AVG(Points) AvgPoint FROM  Vw_TREmployeExams GROUP BY 
 {0} 
 GROUP BY 
 	P.ID,
+    R.RoomName,
     T.TrainingID, 
     T.TrainingName, 
     P.StartTime, 
@@ -85,7 +87,7 @@ ORDER BY  C.CategoryName;
 select P.CompanyName,P.Planed,A.Participated from 
 (SELECT CompanyName,SUM(Planed) Planed FROM (
 select PlanID, C.CompanyName,COUNT(DISTINCT E.EMPID) Planed from TRTrainingParticipants PT 
-LEFT JOIN MDEmployees E ON PT.EmpID=E.EmpID 
+LEFT JOIN Vw_MDEmployees E ON PT.EmpID=E.EmpID 
 LEFT JOIN MDCompanies C ON E.CompanyID=C.CompanyID 
 LEFT JOIN TRPlannedTrainings P ON PT.PlanID=P.ID
 LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
@@ -94,41 +96,54 @@ GROUP BY  PlanID, C.CompanyName) A group by CompanyName) P
  JOIN 
 (SELECT CompanyName,SUM(Participated) Participated FROM (
 select PlanID, C.CompanyName,COUNT(DISTINCT E.EMPID) Participated from TRTrainingParticipated PT
-LEFT JOIN MDEmployees E ON PT.EmpID=E.EmpID 
+LEFT JOIN Vw_MDEmployees E ON PT.EmpID=E.EmpID 
 LEFT JOIN MDCompanies C ON E.CompanyID=C.CompanyID
 LEFT JOIN TRPlannedTrainings P ON PT.PlanID=P.ID
 LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
 {0} 
 GROUP BY  PlanID, C.CompanyName) A group by CompanyName) A ON P.COMPANYNAME=A.COMPANYNAME
 ";
-            string companyFilter = " P.ID IN(SELECT  PRT.PlanID FROM TRTrainingParticipants PRT left join MDEmployees EM ON PRT.EmpID = EM.EmpID WHERE EM.CompanyID = @CompanyID)";
+            string companyFilter = " P.ID IN(SELECT  PRT.PlanID FROM TRTrainingParticipants PRT left join Vw_MDEmployees EM ON PRT.EmpID = EM.EmpID WHERE EM.CompanyID = @CompanyID)";
             DataSet ds = new DataSet();
             string filter = string.Empty;
-            if (categoryID is not null && categoryID > 0)
-                filter += ((filter == "" ? " WHERE " : " AND ") + " T.Category=@CategoryID ");
+            if (!string.IsNullOrEmpty(categoryIDs))
+                filter += ((filter == "" ? " WHERE " : " AND ") + $" T.Category in({categoryIDs}) ");
             if (trainingID is not null && trainingID > 0)
-                filter += ((filter == "" ? " WHERE " : " AND ") + " P.TrainingID=@TrainingID ");
+                filter += ((filter == "" ? " WHERE " : " AND ") + $" P.TrainingID =@TrainingID");
             if (fromDate is not null)
                 filter += ((filter == "" ? " WHERE " : " AND ") + " P.Date_>=@FromDate ");
             if (toDate is not null)
                 filter += ((filter == "" ? " WHERE " : " AND ") + " P.Date_<=@ToDate ");
             if ((companyID ?? 0) > 0)
                 filter += ((filter == "" ? " WHERE " : " AND ") + companyFilter);
+            if (roleID == 4)//coordinator
+            {
+                var a = new UsersController(_userService, _configuration).GetUserProfile(userID);
+                if (a.GetType() != typeof(OkObjectResult))
+                    return a;
+
+                var me = (((OkObjectResult)a).Value as User);
+                filter += ((filter == "" ? " WHERE " : " AND ") + " P.ID IN (SELECT PlanID FROM TRPlanQuotas WHERE CompanyID=" + me.CompanyID + ")");
+            }
+            else if (roleID == 5) //trainer
+                filter += ((filter == "" ? " WHERE " : " AND ") + " (P.TrainerID=@UserID OR P.TrainerID2=@UserID OR P.TrainerID3=@UserID) ");
+
             sql = string.Format(sql, filter,
-                (companyID ?? 0) == 0 ? "" : " AND (PL.EmpID  IN (SELECT EmpID FROM MDEMPLOYEES WHERE CompanyID =@CompanyID)) ", //{1}
-                (companyID ?? 0) == 0 ? "" : " AND (RE.EmpID  IN (SELECT EmpID FROM MDEMPLOYEES WHERE CompanyID =@CompanyID)) ", //{2}
-                (companyID ?? 0) == 0 ? "" : " AND (Ep.EmpID  IN (SELECT EmpID FROM MDEMPLOYEES WHERE CompanyID =@CompanyID)) ", //{3}
-                (companyID ?? 0) == 0 ? "" : " AND (Fa.EmpID  IN (SELECT EmpID FROM MDEMPLOYEES WHERE CompanyID =@CompanyID)) ", //{4}
+                (companyID ?? 0) == 0 ? "" : " AND (PL.EmpID  IN (SELECT EmpID FROM Vw_MDEmployees WHERE CompanyID =@CompanyID)) ", //{1}
+                (companyID ?? 0) == 0 ? "" : " AND (RE.EmpID  IN (SELECT EmpID FROM Vw_MDEmployees WHERE CompanyID =@CompanyID)) ", //{2}
+                (companyID ?? 0) == 0 ? "" : " AND (Ep.EmpID  IN (SELECT EmpID FROM Vw_MDEmployees WHERE CompanyID =@CompanyID)) ", //{3}
+                (companyID ?? 0) == 0 ? "" : " AND (Fa.EmpID  IN (SELECT EmpID FROM Vw_MDEmployees WHERE CompanyID =@CompanyID)) ", //{4}
                 (companyID ?? 0) == 0 ? "" : " AND C.CompanyID =@CompanyID " //{5}
-                                                                                                                                // (companyID ?? 0) == 0 ? "" : " WHERE P.ID IN(SELECT  PRT.PlanID FROM TRTrainingParticipated PRT left join MDEmployees EM ON PRT.EmpID = EM.EmpID WHERE EM.CompanyID = @CompanyID) " //{5}
-                                                                                                                                //(companyID ?? 0) == 0 ? "" : ((filter == "" ? " WHERE " : " AND ") + " P.ID IN(SELECT  PRT.PlanID FROM TRTrainingParticipated PRT left join MDEmployees EM ON PRT.EmpID = EM.EmpID WHERE EM.CompanyID = @CompanyID) ") //{6}
+                                                                             // (companyID ?? 0) == 0 ? "" : " WHERE P.ID IN(SELECT  PRT.PlanID FROM TRTrainingParticipated PRT left join Vw_MDEmployees EM ON PRT.EmpID = EM.EmpID WHERE EM.CompanyID = @CompanyID) " //{5}
+                                                                             //(companyID ?? 0) == 0 ? "" : ((filter == "" ? " WHERE " : " AND ") + " P.ID IN(SELECT  PRT.PlanID FROM TRTrainingParticipated PRT left join Vw_MDEmployees EM ON PRT.EmpID = EM.EmpID WHERE EM.CompanyID = @CompanyID) ") //{6}
                 );
+
             ResultCode res = Db.GetDbDataWithConnection(ref gCon, sql, ref ds,
-                new SqlParameter("CategoryID", categoryID ?? 0),
                 new SqlParameter("TrainingID", trainingID ?? 0),
                 new SqlParameter("CompanyID", companyID ?? (object)DBNull.Value),
                 new SqlParameter("FromDate", fromDate ?? (object)DBNull.Value),
-                new SqlParameter("ToDate", toDate ?? (object)DBNull.Value)
+                new SqlParameter("ToDate", toDate ?? (object)DBNull.Value),
+                new SqlParameter("UserID", userID)
                 );
             if (res != ResultCodes.noError)
                 return NotFound("Data could not be found");
@@ -160,6 +175,7 @@ GROUP BY  PlanID, C.CompanyName) A group by CompanyName) A ON P.COMPANYNAME=A.CO
                     {
                         PlanID = int.Parse(ds.Tables[1].Rows[i]["PlanID"].ToString()),
                         Training = ds.Tables[1].Rows[i]["TrainingName"].ToString(),
+                        Location = ds.Tables[1].Rows[i]["RoomName"].ToString(),
                         StartDate = DateTime.Parse(ds.Tables[1].Rows[i]["StartDate"].ToString()).Add(TimeSpan.Parse(ds.Tables[1].Rows[i]["StartTime"].ToString())),
                         EndDate = DateTime.Parse(ds.Tables[1].Rows[i]["EndDate"].ToString()).Add(TimeSpan.Parse(ds.Tables[1].Rows[i]["EndTime"].ToString())),
                         PlannedParticipants = ds.Tables[1].Rows[i]["PlanCount"].ToString() == "" ? 0 : int.Parse(ds.Tables[1].Rows[i]["PlanCount"].ToString()),
@@ -278,9 +294,9 @@ LEFT JOIN MDTrainings T ON P.TrainingID=T.TrainingID
 LEFT JOIN MDTrainingCategories C ON T.Category=C.CategoryID
 LEFT JOIN TRPlanDates D ON P.ID=D.PlanID
 LEFT JOIN MDTrainingRooms R ON P.RoomID=R.RoomID
-LEFT JOIN MDTrainers TR1 ON P.TrainerID=TR1.TrainerID
-LEFT JOIN MDTrainers TR2 ON P.TrainerID2=TR2.TrainerID
-LEFT JOIN MDTrainers TR3 ON P.TrainerID3=TR3.TrainerID
+LEFT JOIN Vw_MDTrainers TR1 ON P.TrainerID=TR1.TrainerID
+LEFT JOIN Vw_MDTrainers TR2 ON P.TrainerID2=TR2.TrainerID
+LEFT JOIN Vw_MDTrainers TR3 ON P.TrainerID3=TR3.TrainerID
 WHERE P.ID=@ID
 GROUP BY 
 P.ID , T.TrainingName,cast (P.StartTime as time) ,cast( P.EndTime as time) ,
@@ -292,7 +308,7 @@ LEFT JOIN MDCompanies C ON Q.CompanyID=C.CompanyID
 WHERE Q.PlanID=@ID;
 
 SELECT E.EmpID, E.EmpName, CASE WHEN PT.EmpID IS NULL THEN 0 ELSE 1 END Participated, ex.AvgResult ExamPoint FROM TRTrainingParticipants P
-LEFT JOIN MDEmployees E ON P.EmpID=E.EmpID
+LEFT JOIN Vw_MDEmployees E ON P.EmpID=E.EmpID
 LEFT JOIN (SELECT PlanID, EmpID FROM TRTrainingParticipated GROUP BY PlanID, EmpID) PT ON P.PlanID=PT.PlanID AND E.EmpID=PT.EmpID
 LEFT JOIN (SELECT PlanID, EmpID, AVG(Points) AvgResult FROM Vw_TREmployeExams GROUP BY PlanID, EmpID) EX ON P.PlanID=EX.PlanID AND P.EmpID=EX.EmpID
 WHERE P.PlanID=@ID

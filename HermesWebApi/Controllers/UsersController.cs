@@ -97,7 +97,7 @@ SELECT AR.RoleID, UR.RoleName FROM MDUserAccessRoles AR LEFT JOIN MDUserRoles UR
             usr.Status = bool.Parse(ds.Tables[0].Rows[0]["Status"].ToString());
             usr.RoleID = ds.Tables[0].Rows[0]["RoleID"].ToString() == "" ? "0" : ds.Tables[0].Rows[0]["RoleID"].ToString();
             usr.RoleName = ds.Tables[0].Rows[0]["RoleName"].ToString();
-            usr.Gender = ds.Tables[0].Rows[0]["Gender"].ToString() == "" ? 1 : int.Parse(ds.Tables[0].Rows[0]["Gender"].ToString());
+            usr.Gender = ds.Tables[0].Rows[0]["Gender"].ToString() == "" ? 1 : (bool.Parse(ds.Tables[0].Rows[0]["Gender"].ToString()) ? 1 : 0);
             usr.FrameRights = new List<UserFrameRight>();
             usr.Roles = new List<UserRole>();
             for (int i = 0; i < ds.Tables[1].Rows.Count; i++)
@@ -148,7 +148,7 @@ ORDER BY U.UserID DESC";
             for (int i = 0; i < ds.Tables[0].Rows.Count; i++)
             {
                 User usr = new User();
-                usr.UserID = userID;
+                usr.UserID = ds.Tables[0].Rows[i]["UserID"].ToString();
                 usr.UserName = ds.Tables[0].Rows[i]["UserName"].ToString();
                 usr.UserCode = ds.Tables[0].Rows[i]["UserCode"].ToString();
                 usr.Email = ds.Tables[0].Rows[i]["MailAddress"].ToString();
@@ -158,7 +158,7 @@ ORDER BY U.UserID DESC";
                 usr.Status = bool.Parse(ds.Tables[0].Rows[i]["Status"].ToString());
                 usr.RoleID = ds.Tables[0].Rows[i]["RoleID"].ToString() == "" ? "0" : ds.Tables[0].Rows[i]["RoleID"].ToString();
                 usr.RoleName = ds.Tables[0].Rows[i]["RoleName"].ToString();
-                usr.Gender = ds.Tables[0].Rows[i]["Gender"].ToString() == "" ? 1 : int.Parse(ds.Tables[0].Rows[i]["Gender"].ToString());
+                usr.Gender = ds.Tables[0].Rows[i]["Gender"].ToString() == "" ? 1 : (bool.Parse(ds.Tables[0].Rows[i]["Gender"].ToString()) ? 1 : 0);
                 usr.PositionID = ds.Tables[0].Rows[i]["PositionID"].ToString() == "" ? "0" : ds.Tables[0].Rows[i]["PositionID"].ToString();
                 usr.DepartmentID = ds.Tables[0].Rows[i]["DeptID"].ToString() == "" ? "0" : ds.Tables[0].Rows[i]["DeptID"].ToString();
                 users.Add(usr);
@@ -196,6 +196,65 @@ ORDER BY U.UserID DESC";
             if (res != ResultCodes.noError || ds.Tables.Count == 0 || ds.Tables[0].Rows.Count == 0)
                 return UnprocessableEntity(res.ErrorMessage);
             usr.UserID = ds.Tables[0].Rows[0][0].ToString();
+            for (int i = 0; i < usr.Roles.Count; i++)
+            {
+                sql = "INSERT INTO MDUserAccessRoles (UserID, RoleID, CreatedBy, CreatedDate) VALUES (@UserID, @RoleID, @CreatedBy, GETDATE())";
+                res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows,
+                    new SqlParameter("UserID", usr.UserID),
+                    new SqlParameter("RoleID", usr.Roles[i].ID),
+                    new SqlParameter("CreatedBy", userID));
+            }
+            return res == ResultCodes.noError ? Ok(res.ErrorMessage) : UnprocessableEntity(res.ErrorMessage);
+        }
+
+        [HttpPost("update"), Authorize]
+        public IActionResult UpdateUser(User usr)
+        {
+            string? userID = _userService.GetUserId();
+            if (userID == null)
+                return Unauthorized("Unable to find user information.");
+            if (string.IsNullOrEmpty(usr.UserID))
+                return UnprocessableEntity("UserID can not be null or empty while updating");
+            string sql = @"
+UPDATE MDUsers SET  
+    UserName=@UserName, 
+    UserCode=@UserCode, 
+    ADAccount=@ADAccount, 
+    MailAddress=@MailAddress, 
+    Mobile=@Mobile, 
+    Description=@Description, 
+    AllowedIP=@AllowedIP, 
+    Gender=@Gender, 
+    PositionID=@PositionID, 
+    UpdatedBy=@UpdatedBy, 
+    UpdatedBy=GETDATE()
+    CompanyID=@CompanyID, 
+    DeptID=@DeptID
+WHERE UserID=@UserID
+";
+            ResultCode res = new ResultCode();
+            DataSet ds = new DataSet();
+            int affRows = 0;
+            res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows,
+                new SqlParameter("UserName", usr.UserName),
+                new SqlParameter("UserCode", usr.UserCode),
+                new SqlParameter("ADAccount", usr.ADAccount ?? ""),
+                new SqlParameter("MailAddress", usr.Email),
+                new SqlParameter("Mobile", usr.Mobile ?? ""),
+                new SqlParameter("Description", ""),
+                new SqlParameter("AllowedIP", "*"),
+                new SqlParameter("PositionID", usr.PositionID),
+                new SqlParameter("Gender", usr.Gender),
+                new SqlParameter("DeptID", usr.DepartmentID),
+                new SqlParameter("UpdatedBy", userID),
+                new SqlParameter("UserID", usr.UserID),
+                new SqlParameter("CompanyID", usr.CompanyID)
+                );
+            if (res != ResultCodes.noError || ds.Tables.Count == 0 || ds.Tables[0].Rows.Count == 0)
+                return UnprocessableEntity(res.ErrorMessage);
+            sql = "DELETE FROM MDUserAccessRoles WHERE UserID=@UserID";
+            res = Db.ExecuteWithConnection(ref gCon, sql, ref affRows,
+               new SqlParameter("UserID", usr.UserID));
             for (int i = 0; i < usr.Roles.Count; i++)
             {
                 sql = "INSERT INTO MDUserAccessRoles (UserID, RoleID, CreatedBy, CreatedDate) VALUES (@UserID, @RoleID, @CreatedBy, GETDATE())";

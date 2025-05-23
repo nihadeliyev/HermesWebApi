@@ -55,6 +55,7 @@
         public int Passed { get; set; }
         public int Failed { get; set; }
         public float AvaragePoint { get; set; }
+        public string Location { get; set; }
     }
     public class TrainingPlanDetail
     {

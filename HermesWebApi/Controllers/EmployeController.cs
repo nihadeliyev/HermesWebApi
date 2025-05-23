@@ -36,14 +36,14 @@ namespace HermesWebApi.Controllers
 
             string sql = @"
     SELECT  E.EmpID, E.EmpName, E.FatherName, E.BirthDate, C.CompanyName, D.DepartmentName, ED.EducationName, R.RoleName , E.EmailAddress, E.PhoneNumber, E.Notes
-    FROM MDEmployees E 
+    FROM Vw_MDEmployees E 
     LEFT JOIN MDCompanies C ON E.CompanyID = C.CompanyID 
     LEFT JOIN MDDepartments D ON E.DepartmentID = D.DepartmentID 
     LEFT JOIN MDEducations ED ON ED.EducationID = E.Education
     LEFT JOIN MDRoles R ON E.RoleID = R.RoleID
     ORDER BY E.EmpID DESC
 OFFSET @Start ROWS FETCH NEXT @RowCount ROWS ONLY;
-SELECT COUNT(*) FROM MDEmployees;
+SELECT COUNT(*) FROM Vw_MDEmployees;
 ";
 
             DataSet ds = new DataSet();
@@ -87,7 +87,7 @@ SELECT COUNT(*) FROM MDEmployees;
 
             string sql = @"
     SELECT  COUNT(*) 
-    FROM MDEmployees 
+    FROM Vw_MDEmployees 
 ";
 
             DataSet ds = new DataSet();
@@ -108,7 +108,7 @@ SELECT COUNT(*) FROM MDEmployees;
             ResultCode res;
             int affRows = 0;
             string sql = string.Empty;
-            sql = @"INSERT INTO MDEmployees
+            sql = @"INSERT INTO Vw_MDEmployees
                        (EmpName
                        ,EmpSurname
                        ,FatherName
